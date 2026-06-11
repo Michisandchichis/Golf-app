@@ -1,0 +1,52 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main, claude/app-building-getting-started-79nvf1]
+
+jobs:
+  deploy-web:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build web app
+        run: npx expo export --platform web
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+
+  publish-expo:
+    name: Publish to Expo (EAS Update)
+    runs-on: ubuntu-latest
+    if: ${{ vars.EXPO_ACCOUNT_NAME != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Publish update
+        run: eas update --branch preview --message "Auto-publish from GitHub Actions" --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
