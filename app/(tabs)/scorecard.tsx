@@ -15,16 +15,19 @@ import { useFocusEffect } from 'expo-router';
 const DEFAULT_PARS = [4,4,3,4,5,4,3,4,5, 4,4,3,4,5,4,3,4,5];
 
 export default function ScorecardScreen() {
-  const { roundId, totalHoles } = useLocalSearchParams<{ roundId: string; totalHoles: string }>();
+  const { roundId, totalHoles, pars: parsParam } = useLocalSearchParams<{ roundId: string; totalHoles: string; pars: string }>();
   const router = useRouter();
   const numHoles = parseInt(totalHoles ?? '18');
   const rid = parseInt(roundId ?? '0');
+  const HOLE_PARS = parsParam
+    ? parsParam.split(',').map(Number)
+    : DEFAULT_PARS;
 
   const [currentHole, setCurrentHole] = useState(1);
   const [savedHoles, setSavedHoles] = useState<Hole[]>([]);
 
   // Per-hole entry state
-  const [par, setPar] = useState(DEFAULT_PARS[0]);
+  const [par, setPar] = useState(HOLE_PARS[0]);
   const [score, setScore] = useState(DEFAULT_PARS[0]);
   const [putts, setPutts] = useState(2);
   const [fairwayHit, setFairwayHit] = useState(false);
@@ -38,7 +41,7 @@ export default function ScorecardScreen() {
         const next = holes.length + 1;
         if (next <= numHoles) {
           setCurrentHole(next);
-          const p = DEFAULT_PARS[next - 1];
+          const p = HOLE_PARS[next - 1] ?? DEFAULT_PARS[next - 1];
           setPar(p);
           setScore(p);
           setPutts(2);
@@ -75,7 +78,7 @@ export default function ScorecardScreen() {
     if (currentHole < numHoles) {
       const next = currentHole + 1;
       setCurrentHole(next);
-      const p = DEFAULT_PARS[next - 1];
+      const p = HOLE_PARS[next - 1] ?? DEFAULT_PARS[next - 1];
       setPar(p);
       setScore(p);
       setPutts(2);

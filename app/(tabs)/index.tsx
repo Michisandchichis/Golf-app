@@ -10,9 +10,10 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { createRound, getCourse, getRounds, markRoundShared, Round } from '../../lib/db';
+import { createRound, getRounds, markRoundShared, Round } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { searchCourses, PresetCourse, Tee } from '../../lib/courses';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -21,7 +22,9 @@ export default function HomeScreen() {
   const [holes, setHoles] = useState<'9' | '18'>('18');
   const [courseRating, setCourseRating] = useState('');
   const [slopeRating, setSlopeRating] = useState('');
-  const [courseFound, setCourseFound] = useState(false);
+  const [suggestions, setSuggestions] = useState<PresetCourse[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<PresetCourse | null>(null);
+  const [selectedTee, setSelectedTee] = useState<Tee | null>(null);
   const [recentRounds, setRecentRounds] = useState<Round[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -64,27 +67,47 @@ export default function HomeScreen() {
 
   function handleCourseNameChange(name: string) {
     setCourseName(name);
-    const saved = getCourse(name.trim());
-    if (saved) {
-      setCourseRating(String(saved.rating));
-      setSlopeRating(String(saved.slope));
-      setCourseFound(true);
-    } else {
-      setCourseFound(false);
-    }
+    setSelectedCourse(null);
+    setSelectedTee(null);
+    setCourseRating('');
+    setSlopeRating('');
+    setSuggestions(searchCourses(name));
+  }
+
+  function selectPresetCourse(course: PresetCourse) {
+    setCourseName(course.name);
+    setSelectedCourse(course);
+    setSuggestions([]);
+    setHoles(course.holes === 9 ? '9' : '18');
+    const firstTee = course.tees[0];
+    setSelectedTee(firstTee);
+    setCourseRating(String(firstTee.rating));
+    setSlopeRating(String(firstTee.slope));
+  }
+
+  function selectTee(tee: Tee) {
+    setSelectedTee(tee);
+    setCourseRating(String(tee.rating));
+    setSlopeRating(String(tee.slope));
   }
 
   function startRound() {
     if (!courseName.trim()) return;
     const rating = parseFloat(courseRating) || 0;
     const slope = parseInt(slopeRating) || 113;
+    const pars = selectedCourse?.pars ?? [];
     const roundId = createRound(courseName.trim(), parseInt(holes), rating, slope);
     setModalVisible(false);
     setCourseName('');
     setCourseRating('');
     setSlopeRating('');
-    setCourseFound(false);
-    router.push({ pathname: '/(tabs)/scorecard', params: { roundId, totalHoles: holes } });
+    setSuggestions([]);
+    setSelectedCourse(null);
+    setSelectedTee(null);
+    router.push({
+      pathname: '/(tabs)/scorecard',
+      params: { roundId, totalHoles: holes, pars: pars.join(',') },
+    });
   }
 
   function scoreToPar(score: number, par: number) {
@@ -150,33 +173,73 @@ export default function HomeScreen() {
             <Text style={styles.label}>Course name</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Pebble Beach"
+              placeholder="e.g. Valley Oaks"
               value={courseName}
               onChangeText={handleCourseNameChange}
               autoFocus
             />
 
-            {courseFound && (
-              <Text style={styles.courseFoundText}>✓ Course data loaded automatically</Text>
+            {suggestions.length > 0 && (
+              <View style={styles.suggestions}>
+                {suggestions.map((c) => (
+                  <TouchableOpacity
+                    key={c.name}
+                    style={styles.suggestion}
+                    onPress={() => selectPresetCourse(c)}
+                  >
+                    <Text style={styles.suggestionText}>{c.name}</Text>
+                    <Text style={styles.suggestionSub}>{c.holes} holes</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
 
-            <Text style={styles.label}>Course Rating & Slope <Text style={styles.labelHint}>(on scorecard — needed for handicap)</Text></Text>
-            <View style={styles.ratingRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Rating e.g. 72.4"
-                value={courseRating}
-                onChangeText={setCourseRating}
-                keyboardType="decimal-pad"
-              />
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Slope e.g. 113"
-                value={slopeRating}
-                onChangeText={setSlopeRating}
-                keyboardType="number-pad"
-              />
-            </View>
+            {selectedCourse && (
+              <>
+                <Text style={styles.label}>Tee color</Text>
+                <View style={styles.teeRow}>
+                  {selectedCourse.tees.map((tee) => (
+                    <TouchableOpacity
+                      key={tee.name}
+                      style={[styles.teeBtn, selectedTee?.name === tee.name && styles.teeBtnActive]}
+                      onPress={() => selectTee(tee)}
+                    >
+                      <Text style={[styles.teeBtnText, selectedTee?.name === tee.name && styles.teeBtnTextActive]}>
+                        {tee.name}
+                      </Text>
+                      <Text style={[styles.teeBtnSub, selectedTee?.name === tee.name && styles.teeBtnTextActive]}>
+                        {tee.rating} / {tee.slope}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {!selectedCourse && (
+              <>
+                <Text style={styles.label}>
+                  Course Rating & Slope{' '}
+                  <Text style={styles.labelHint}>(on scorecard — needed for handicap)</Text>
+                </Text>
+                <View style={styles.ratingRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Rating e.g. 72.4"
+                    value={courseRating}
+                    onChangeText={setCourseRating}
+                    keyboardType="decimal-pad"
+                  />
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Slope e.g. 113"
+                    value={slopeRating}
+                    onChangeText={setSlopeRating}
+                    keyboardType="number-pad"
+                  />
+                </View>
+              </>
+            )}
 
             <Text style={styles.label}>Number of holes</Text>
             <View style={styles.holeToggle}>
@@ -260,19 +323,13 @@ const styles = StyleSheet.create({
   scoreParText: { fontSize: 12, color: '#666' },
   modalOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     justifyContent: 'flex-end',
     zIndex: 999,
   },
   modalBackdrop: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalBox: {
@@ -284,7 +341,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#222', marginBottom: 16 },
   label: { fontSize: 13, color: '#555', marginBottom: 6, marginTop: 12 },
   labelHint: { fontSize: 11, color: '#aaa' },
-  courseFoundText: { fontSize: 12, color: GREEN, marginTop: 4 },
   ratingRow: { flexDirection: 'row', gap: 10 },
   input: {
     borderWidth: 1,
@@ -294,6 +350,37 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
   },
+  suggestions: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginTop: 4,
+    overflow: 'hidden',
+  },
+  suggestion: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  suggestionText: { fontSize: 14, color: '#222', fontWeight: '500' },
+  suggestionSub: { fontSize: 12, color: '#aaa' },
+  teeRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  teeBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  teeBtnActive: { backgroundColor: GREEN, borderColor: GREEN },
+  teeBtnText: { fontSize: 14, fontWeight: '600', color: '#444' },
+  teeBtnSub: { fontSize: 11, color: '#888', marginTop: 2 },
+  teeBtnTextActive: { color: '#fff' },
   holeToggle: { flexDirection: 'row', gap: 10, marginTop: 4 },
   holeBtn: {
     flex: 1,
