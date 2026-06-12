@@ -193,7 +193,7 @@ export default function ScorecardScreen() {
         {/* Hole entry / edit card */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Hole {displayHole}</Text>
+            <Text style={styles.cardTitle}>Hole {displayHole} <Text style={styles.parLabel}>· Par {par}</Text></Text>
             {isSavedHole && (
               <View style={styles.editBadge}>
                 <Text style={styles.editBadgeText}>Editing</Text>
@@ -202,14 +202,6 @@ export default function ScorecardScreen() {
           </View>
 
           <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.rowLabel}>Par</Text>
-              <Counter
-                value={par}
-                onChange={(v) => { setPar(v); if (score === par) setScore(v); }}
-                min={3}
-              />
-            </View>
             <View style={styles.rowItem}>
               <Text style={styles.rowLabel}>Score</Text>
               <Counter value={score} onChange={setScore} min={1} />
@@ -343,6 +335,7 @@ const styles = StyleSheet.create({
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
+  parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
   tapHint: { fontSize: 12, color: '#aaa', fontWeight: '400' },
   editBadge: { backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   editBadgeText: { fontSize: 12, color: '#856404', fontWeight: '600' },
