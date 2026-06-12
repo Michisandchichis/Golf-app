@@ -10,6 +10,7 @@ export type PresetCourse = {
   holes: number;
   tees: Tee[];
   pars: number[];
+  handicaps: number[];
 };
 
 export const PRESET_COURSES: PresetCourse[] = [
@@ -21,6 +22,8 @@ export const PRESET_COURSES: PresetCourse[] = [
       { name: 'White', rating: 69.1, slope: 121, yards: [468, 359, 335, 386, 152, 341, 200, 389, 482] },
     ],
     pars: [5, 4, 4, 4, 3, 4, 3, 4, 5],
+    handicaps: [8, 4, 5, 1, 7, 6, 2, 3, 9],
+
   },
   {
     name: 'Valley Oaks - Oaks Course',
@@ -30,6 +33,7 @@ export const PRESET_COURSES: PresetCourse[] = [
       { name: 'White', rating: 69.0, slope: 122, yards: [351, 331, 492, 501, 140, 369, 385, 189, 408] },
     ],
     pars: [4, 4, 5, 5, 3, 4, 4, 3, 4],
+    handicaps: [5, 3, 7, 6, 9, 8, 4, 1, 2],
   },
   {
     name: 'Valley Oaks - Lakes Course',
@@ -39,6 +43,7 @@ export const PRESET_COURSES: PresetCourse[] = [
       { name: 'White', rating: 68.5, slope: 118, yards: [359, 472, 312, 167, 358, 341, 159, 413, 516] },
     ],
     pars: [4, 5, 4, 3, 4, 4, 3, 4, 5],
+    handicaps: [8, 9, 7, 4, 6, 2, 5, 1, 3],
   },
 ];
 
