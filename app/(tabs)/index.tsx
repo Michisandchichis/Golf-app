@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Modal,
   SafeAreaView,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { createRound, getRounds, deleteRound, Round } from '../../lib/db';
-import { useFocusEffect } from '@react-navigation/native';
-import { useCallback } from 'react';
+import { createRound, getRounds, markRoundShared, Round } from '../../lib/db';
+import { useFocusEffect } from 'expo-router';
+import { supabase } from '../../lib/supabase';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -20,12 +20,44 @@ export default function HomeScreen() {
   const [courseName, setCourseName] = useState('');
   const [holes, setHoles] = useState<'9' | '18'>('18');
   const [recentRounds, setRecentRounds] = useState<Round[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       setRecentRounds(getRounds().slice(0, 5));
     }, [])
   );
+
+  async function shareRound(round: Round) {
+    if (!userId || !round.id) return;
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        user_id: userId,
+        course_name: round.courseName,
+        total_score: round.totalScore,
+        total_par: round.totalPar,
+        total_holes: round.totalHoles,
+        date: round.date,
+        notes: round.notes || null,
+      })
+      .select()
+      .single();
+    if (error) {
+      Alert.alert('Could not share', error.message);
+      return;
+    }
+    markRoundShared(round.id, data.id);
+    setRecentRounds((prev) =>
+      prev.map((r) => (r.id === round.id ? { ...r, remoteId: data.id } : r))
+    );
+  }
 
   function startRound() {
     if (!courseName.trim()) return;
@@ -45,6 +77,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.hero}>
+          <TouchableOpacity
+            style={styles.profileBtn}
+            onPress={() => userId && router.push(`/profile/${userId}` as any)}
+          >
+            <Text style={styles.profileBtnText}>My Profile</Text>
+          </TouchableOpacity>
           <Text style={styles.heroEmoji}>⛳</Text>
           <Text style={styles.heroTitle}>Golf Tracker</Text>
           <Text style={styles.heroSub}>Track your rounds, improve your game</Text>
@@ -63,20 +101,29 @@ export default function HomeScreen() {
                   <Text style={styles.roundCourse}>{r.courseName}</Text>
                   <Text style={styles.roundDate}>{r.date} · {r.totalHoles} holes</Text>
                 </View>
-                {r.totalScore > 0 && (
-                  <View style={styles.scoreBadge}>
-                    <Text style={styles.scoreBadgeText}>{r.totalScore}</Text>
-                    <Text style={styles.scoreParText}>{scoreToPar(r.totalScore, r.totalPar)}</Text>
-                  </View>
-                )}
+                <View style={styles.roundRight}>
+                  {r.totalScore > 0 && (
+                    <View style={styles.scoreBadge}>
+                      <Text style={styles.scoreBadgeText}>{r.totalScore}</Text>
+                      <Text style={styles.scoreParText}>{scoreToPar(r.totalScore, r.totalPar)}</Text>
+                    </View>
+                  )}
+                  {r.totalScore > 0 && !r.remoteId && (
+                    <TouchableOpacity style={styles.shareBtn} onPress={() => shareRound(r)}>
+                      <Text style={styles.shareBtnText}>Share</Text>
+                    </TouchableOpacity>
+                  )}
+                  {r.remoteId && <Text style={styles.sharedText}>Shared ✓</Text>}
+                </View>
               </View>
             ))}
           </View>
         )}
       </ScrollView>
 
-      <Modal visible={modalVisible} animationType="slide" transparent>
+      {modalVisible && (
         <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setModalVisible(false)} />
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>New Round</Text>
 
@@ -117,7 +164,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -127,7 +174,9 @@ const GREEN = '#2d6a2d';
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   scroll: { padding: 20 },
-  hero: { alignItems: 'center', paddingVertical: 32 },
+  hero: { alignItems: 'center', paddingVertical: 32, position: 'relative' },
+  profileBtn: { position: 'absolute', top: 0, right: 0, paddingVertical: 4, paddingHorizontal: 10 },
+  profileBtnText: { color: GREEN, fontSize: 13, fontWeight: '600' },
   heroEmoji: { fontSize: 64 },
   heroTitle: { fontSize: 28, fontWeight: 'bold', color: GREEN, marginTop: 8 },
   heroSub: { fontSize: 14, color: '#666', marginTop: 4 },
@@ -155,13 +204,34 @@ const styles = StyleSheet.create({
   },
   roundCourse: { fontSize: 15, fontWeight: '600', color: '#222' },
   roundDate: { fontSize: 12, color: '#888', marginTop: 2 },
+  roundRight: { alignItems: 'flex-end', gap: 6 },
   scoreBadge: { alignItems: 'center', minWidth: 48 },
+  shareBtn: {
+    backgroundColor: GREEN,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  shareBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  sharedText: { fontSize: 12, color: '#888' },
   scoreBadgeText: { fontSize: 20, fontWeight: 'bold', color: GREEN },
   scoreParText: { fontSize: 12, color: '#666' },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'flex-end',
+    zIndex: 999,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalBox: {
     backgroundColor: '#fff',

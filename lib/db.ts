@@ -21,6 +21,7 @@ export type Round = {
   totalScore: number;
   totalPar: number;
   notes: string;
+  remoteId?: string;
 };
 
 export function initDb() {
@@ -47,6 +48,12 @@ export function initDb() {
       FOREIGN KEY (roundId) REFERENCES rounds(id)
     );
   `);
+  // add remoteId column to existing databases that predate it
+  try { db.execSync('ALTER TABLE rounds ADD COLUMN remoteId TEXT'); } catch {}
+}
+
+export function markRoundShared(roundId: number, remoteId: string) {
+  db.runSync('UPDATE rounds SET remoteId = ? WHERE id = ?', [remoteId, roundId]);
 }
 
 export function createRound(courseName: string, totalHoles: number): number {
