@@ -241,20 +241,24 @@ export default function HomeScreen() {
               </>
             )}
 
-            <Text style={styles.label}>Number of holes</Text>
-            <View style={styles.holeToggle}>
-              {(['9', '18'] as const).map((n) => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.holeBtn, holes === n && styles.holeBtnActive]}
-                  onPress={() => setHoles(n)}
-                >
-                  <Text style={[styles.holeBtnText, holes === n && styles.holeBtnTextActive]}>
-                    {n} holes
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {!selectedCourse && (
+              <>
+                <Text style={styles.label}>Number of holes</Text>
+                <View style={styles.holeToggle}>
+                  {(['9', '18'] as const).map((n) => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[styles.holeBtn, holes === n && styles.holeBtnActive]}
+                      onPress={() => setHoles(n)}
+                    >
+                      <Text style={[styles.holeBtnText, holes === n && styles.holeBtnTextActive]}>
+                        {n} holes
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             <TouchableOpacity
               style={[styles.confirmBtn, !courseName.trim() && { opacity: 0.4 }]}

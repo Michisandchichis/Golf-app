@@ -12,42 +12,57 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
 
-const DEFAULT_PARS = [4,4,3,4,5,4,3,4,5, 4,4,3,4,5,4,3,4,5];
+const DEFAULT_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5];
+const GREEN = '#2d6a2d';
 
 export default function ScorecardScreen() {
-  const { roundId, totalHoles, pars: parsParam } = useLocalSearchParams<{ roundId: string; totalHoles: string; pars: string }>();
+  const { roundId, totalHoles, pars: parsParam } = useLocalSearchParams<{
+    roundId: string;
+    totalHoles: string;
+    pars: string;
+  }>();
   const router = useRouter();
   const numHoles = parseInt(totalHoles ?? '18');
   const rid = parseInt(roundId ?? '0');
-  const HOLE_PARS = parsParam
-    ? parsParam.split(',').map(Number)
-    : DEFAULT_PARS;
+  const HOLE_PARS = parsParam ? parsParam.split(',').map(Number) : DEFAULT_PARS;
 
-  const [currentHole, setCurrentHole] = useState(1);
   const [savedHoles, setSavedHoles] = useState<Hole[]>([]);
+  const [displayHole, setDisplayHole] = useState(1);
+  const [nextHole, setNextHole] = useState(1);
 
-  // Per-hole entry state
-  const [par, setPar] = useState(HOLE_PARS[0]);
-  const [score, setScore] = useState(DEFAULT_PARS[0]);
+  const [par, setPar] = useState(HOLE_PARS[0] ?? 4);
+  const [score, setScore] = useState(HOLE_PARS[0] ?? 4);
   const [putts, setPutts] = useState(2);
   const [fairwayHit, setFairwayHit] = useState(false);
   const [gir, setGir] = useState(false);
+
+  function loadHoleIntoForm(holeNum: number, holes: Hole[]) {
+    const saved = holes.find((h) => h.holeNumber === holeNum);
+    if (saved) {
+      setPar(saved.par);
+      setScore(saved.score);
+      setPutts(saved.putts);
+      setFairwayHit(!!saved.fairwayHit);
+      setGir(!!saved.greenInRegulation);
+    } else {
+      const p = HOLE_PARS[holeNum - 1] ?? DEFAULT_PARS[holeNum - 1] ?? 4;
+      setPar(p);
+      setScore(p);
+      setPutts(2);
+      setFairwayHit(false);
+      setGir(false);
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
       if (rid) {
         const holes = getHoles(rid);
         setSavedHoles(holes);
-        const next = holes.length + 1;
-        if (next <= numHoles) {
-          setCurrentHole(next);
-          const p = HOLE_PARS[next - 1] ?? DEFAULT_PARS[next - 1];
-          setPar(p);
-          setScore(p);
-          setPutts(2);
-          setFairwayHit(false);
-          setGir(false);
-        }
+        const next = Math.min(holes.length + 1, numHoles);
+        setNextHole(next);
+        setDisplayHole(next);
+        loadHoleIntoForm(next, holes);
       }
     }, [rid])
   );
@@ -69,47 +84,52 @@ export default function ScorecardScreen() {
 
   const totalScore = savedHoles.reduce((s, h) => s + h.score, 0);
   const totalPar = savedHoles.reduce((s, h) => s + h.par, 0);
-  const scoreToPar = totalScore - totalPar;
+  const runningToPar = totalScore - totalPar;
+  const scoreDiff = score - par;
+  const scoreColor = scoreDiff < 0 ? '#c00' : scoreDiff === 0 ? GREEN : '#555';
+  const isSavedHole = savedHoles.some((h) => h.holeNumber === displayHole);
+  const isLastHole = displayHole === numHoles && !isSavedHole;
 
-  function saveCurrentHole() {
-    saveHole({ roundId: rid, holeNumber: currentHole, par, score, putts, fairwayHit, greenInRegulation: gir });
+  function jumpToHole(holeNum: number) {
+    setDisplayHole(holeNum);
+    loadHoleIntoForm(holeNum, savedHoles);
+  }
+
+  function handleSave() {
+    saveHole({ roundId: rid, holeNumber: displayHole, par, score, putts, fairwayHit, greenInRegulation: gir });
     const updated = getHoles(rid);
     setSavedHoles(updated);
-    if (currentHole < numHoles) {
-      const next = currentHole + 1;
-      setCurrentHole(next);
-      const p = HOLE_PARS[next - 1] ?? DEFAULT_PARS[next - 1];
-      setPar(p);
-      setScore(p);
-      setPutts(2);
-      setFairwayHit(false);
-      setGir(false);
+
+    if (isSavedHole) {
+      // Edited existing hole — return to next unplayed hole
+      setDisplayHole(nextHole);
+      loadHoleIntoForm(nextHole, updated);
+    } else if (displayHole < numHoles) {
+      // Saved new hole, more to go
+      const newNext = nextHole + 1;
+      setNextHole(newNext);
+      setDisplayHole(newNext);
+      loadHoleIntoForm(newNext, updated);
     } else {
+      // Saved the final hole — round complete
+      const finalScore = updated.reduce((s, h) => s + h.score, 0);
+      const finalPar = updated.reduce((s, h) => s + h.par, 0);
+      const diff = finalScore - finalPar;
       Alert.alert(
         'Round Complete! 🎉',
-        `Final score: ${totalScore + score} (${scoreToPar + score - par >= 0 ? '+' : ''}${scoreToPar + score - par})`,
-        [
-          {
-            text: 'Save & Finish',
-            onPress: () => {
-              finalizeRound(rid);
-              router.push('/(tabs)');
-            },
-          },
-        ]
+        `Final score: ${finalScore} (${diff >= 0 ? '+' : ''}${diff})`,
+        [{
+          text: 'Save & Finish',
+          onPress: () => { finalizeRound(rid); router.push('/(tabs)'); },
+        }]
       );
     }
   }
 
-  function Counter({
-    value, onChange, min = 0,
-  }: { value: number; onChange: (v: number) => void; min?: number }) {
+  function Counter({ value, onChange, min = 0 }: { value: number; onChange: (v: number) => void; min?: number }) {
     return (
       <View style={styles.counter}>
-        <TouchableOpacity
-          style={styles.counterBtn}
-          onPress={() => onChange(Math.max(min, value - 1))}
-        >
+        <TouchableOpacity style={styles.counterBtn} onPress={() => onChange(Math.max(min, value - 1))}>
           <Text style={styles.counterBtnText}>−</Text>
         </TouchableOpacity>
         <Text style={styles.counterValue}>{value}</Text>
@@ -120,30 +140,75 @@ export default function ScorecardScreen() {
     );
   }
 
-  const scoreDiff = score - par;
-  const scoreColor = scoreDiff < 0 ? '#c00' : scoreDiff === 0 ? '#2d6a2d' : '#555';
+  const btnLabel = isSavedHole
+    ? 'Update Hole ✓'
+    : isLastHole
+    ? 'Finish Round 🏆'
+    : 'Save & Next →';
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Running total bar */}
-      <View style={styles.totalBar}>
-        <Text style={styles.totalLabel}>Hole {currentHole}/{numHoles}</Text>
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.homeBtn} onPress={() => router.push('/(tabs)')}>
+          <Text style={styles.homeBtnText}>⌂ Home</Text>
+        </TouchableOpacity>
         <Text style={styles.totalScore}>
           {savedHoles.length > 0
-            ? `${totalScore} (${scoreToPar >= 0 ? '+' : ''}${scoreToPar})`
-            : 'E'}
+            ? `${totalScore}  (${runningToPar >= 0 ? '+' : ''}${runningToPar})`
+            : 'Score: —'}
         </Text>
       </View>
 
+      {/* Hole selector */}
+      <View style={styles.holeSelectorWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.holeSelector}
+        >
+          {Array.from({ length: numHoles }, (_, i) => i + 1).map((n) => {
+            const saved = savedHoles.some((h) => h.holeNumber === n);
+            const active = n === displayHole;
+            return (
+              <TouchableOpacity
+                key={n}
+                style={[
+                  styles.holeDot,
+                  saved && styles.holeDotSaved,
+                  active && styles.holeDotActive,
+                ]}
+                onPress={() => jumpToHole(n)}
+              >
+                <Text style={[styles.holeDotText, (saved || active) && styles.holeDotTextLight]}>
+                  {n}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Current hole entry */}
+        {/* Hole entry / edit card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Hole {currentHole}</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Hole {displayHole}</Text>
+            {isSavedHole && (
+              <View style={styles.editBadge}>
+                <Text style={styles.editBadgeText}>Editing</Text>
+              </View>
+            )}
+          </View>
 
           <View style={styles.row}>
             <View style={styles.rowItem}>
               <Text style={styles.rowLabel}>Par</Text>
-              <Counter value={par} onChange={(v) => { setPar(v); if (score === par) setScore(v); }} min={3} />
+              <Counter
+                value={par}
+                onChange={(v) => { setPar(v); if (score === par) setScore(v); }}
+                min={3}
+              />
             </View>
             <View style={styles.rowItem}>
               <Text style={styles.rowLabel}>Score</Text>
@@ -169,7 +234,7 @@ export default function ScorecardScreen() {
               onPress={() => setFairwayHit(!fairwayHit)}
             >
               <Text style={[styles.toggleText, fairwayHit && styles.toggleTextActive]}>
-                🌿 Fairway Hit
+                🌿 Fairway
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -182,17 +247,18 @@ export default function ScorecardScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.nextBtn} onPress={saveCurrentHole}>
-            <Text style={styles.nextBtnText}>
-              {currentHole < numHoles ? `Save & Next Hole →` : 'Finish Round 🏆'}
-            </Text>
+          <TouchableOpacity
+            style={[styles.nextBtn, isSavedHole && styles.updateBtn]}
+            onPress={handleSave}
+          >
+            <Text style={styles.nextBtnText}>{btnLabel}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Completed holes mini-scorecard */}
+        {/* Scorecard table — tap any row to edit that hole */}
         {savedHoles.length > 0 && (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Completed Holes</Text>
+            <Text style={styles.cardTitle}>Scorecard  <Text style={styles.tapHint}>(tap a row to edit)</Text></Text>
             <View style={styles.tableHeader}>
               <Text style={[styles.tableCell, styles.tableHeaderText]}>#</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText]}>Par</Text>
@@ -201,15 +267,20 @@ export default function ScorecardScreen() {
             </View>
             {savedHoles.map((h) => {
               const diff = h.score - h.par;
+              const isActiveRow = h.holeNumber === displayHole;
               return (
-                <View key={h.holeNumber} style={styles.tableRow}>
-                  <Text style={styles.tableCell}>{h.holeNumber}</Text>
+                <TouchableOpacity
+                  key={h.holeNumber}
+                  style={[styles.tableRow, isActiveRow && styles.tableRowActive]}
+                  onPress={() => jumpToHole(h.holeNumber)}
+                >
+                  <Text style={[styles.tableCell, styles.tableCellHole]}>{h.holeNumber}</Text>
                   <Text style={styles.tableCell}>{h.par}</Text>
                   <Text style={styles.tableCell}>{h.score}</Text>
-                  <Text style={[styles.tableCell, { color: diff < 0 ? '#c00' : diff === 0 ? '#2d6a2d' : '#555' }]}>
+                  <Text style={[styles.tableCell, { color: diff < 0 ? '#c00' : diff === 0 ? GREEN : '#555' }]}>
                     {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
                   </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -219,19 +290,47 @@ export default function ScorecardScreen() {
   );
 }
 
-const GREEN = '#2d6a2d';
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  totalBar: {
+  topBar: {
     backgroundColor: GREEN,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  totalLabel: { color: '#fff', fontSize: 14, opacity: 0.9 },
+  homeBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  homeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   totalScore: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  holeSelectorWrap: {
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  holeSelector: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  holeDot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#eee',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  holeDotSaved: { backgroundColor: GREEN },
+  holeDotActive: { backgroundColor: GREEN, borderWidth: 3, borderColor: '#fff', shadowColor: GREEN, shadowOpacity: 0.5, shadowRadius: 4, elevation: 4 },
+  holeDotText: { fontSize: 13, fontWeight: '700', color: '#555' },
+  holeDotTextLight: { color: '#fff' },
   scroll: { padding: 16, gap: 16 },
   card: {
     backgroundColor: '#fff',
@@ -242,45 +341,39 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: '#222', marginBottom: 16 },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
+  tapHint: { fontSize: 12, color: '#aaa', fontWeight: '400' },
+  editBadge: { backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  editBadgeText: { fontSize: 12, color: '#856404', fontWeight: '600' },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-end' },
   rowItem: { flex: 1, alignItems: 'center' },
   rowLabel: { fontSize: 12, color: '#666', marginBottom: 6 },
   counter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   counterBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#eee',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center',
   },
   counterBtnText: { fontSize: 20, color: '#333', lineHeight: 24 },
   counterValue: { fontSize: 24, fontWeight: 'bold', color: '#222', minWidth: 32, textAlign: 'center' },
   scoreDiff: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
   toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   toggle: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
+    flex: 1, borderWidth: 1, borderColor: '#ddd',
+    borderRadius: 8, paddingVertical: 10, alignItems: 'center',
   },
   toggleActive: { backgroundColor: GREEN, borderColor: GREEN },
   toggleText: { fontSize: 13, color: '#444' },
   toggleTextActive: { color: '#fff', fontWeight: '600' },
-  nextBtn: {
-    backgroundColor: GREEN,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
+  nextBtn: { backgroundColor: GREEN, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  updateBtn: { backgroundColor: '#5a8f5a' },
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', paddingBottom: 6, marginBottom: 4 },
   tableHeaderText: { fontWeight: '600', color: '#555', fontSize: 12 },
-  tableRow: { flexDirection: 'row', paddingVertical: 4 },
+  tableRow: { flexDirection: 'row', paddingVertical: 8, borderRadius: 6 },
+  tableRowActive: { backgroundColor: '#f0f6f0' },
   tableCell: { flex: 1, textAlign: 'center', fontSize: 14, color: '#333' },
+  tableCellHole: { fontWeight: '700', color: GREEN },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 12 },
