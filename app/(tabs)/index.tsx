@@ -96,6 +96,7 @@ export default function HomeScreen() {
     const rating = parseFloat(courseRating) || 0;
     const slope = parseInt(slopeRating) || 113;
     const pars = selectedCourse?.pars ?? [];
+    const yards = selectedTee?.yards ?? [];
     const roundId = createRound(courseName.trim(), parseInt(holes), rating, slope);
     setModalVisible(false);
     setCourseName('');
@@ -106,7 +107,7 @@ export default function HomeScreen() {
     setSelectedTee(null);
     router.push({
       pathname: '/(tabs)/scorecard',
-      params: { roundId, totalHoles: holes, pars: pars.join(',') },
+      params: { roundId, totalHoles: holes, pars: pars.join(','), yards: yards.join(',') },
     });
   }
 

@@ -16,15 +16,17 @@ const DEFAULT_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5];
 const GREEN = '#2d6a2d';
 
 export default function ScorecardScreen() {
-  const { roundId, totalHoles, pars: parsParam } = useLocalSearchParams<{
+  const { roundId, totalHoles, pars: parsParam, yards: yardsParam } = useLocalSearchParams<{
     roundId: string;
     totalHoles: string;
     pars: string;
+    yards: string;
   }>();
   const router = useRouter();
   const numHoles = parseInt(totalHoles ?? '18');
   const rid = parseInt(roundId ?? '0');
   const HOLE_PARS = parsParam ? parsParam.split(',').map(Number) : DEFAULT_PARS;
+  const HOLE_YARDS = yardsParam ? yardsParam.split(',').map(Number) : [];
 
   const [savedHoles, setSavedHoles] = useState<Hole[]>([]);
   const [displayHole, setDisplayHole] = useState(1);
@@ -193,7 +195,7 @@ export default function ScorecardScreen() {
         {/* Hole entry / edit card */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Hole {displayHole} <Text style={styles.parLabel}>· Par {par}</Text></Text>
+            <Text style={styles.cardTitle}>Hole {displayHole} <Text style={styles.parLabel}>· Par {par}{HOLE_YARDS[displayHole - 1] ? `  ·  ${HOLE_YARDS[displayHole - 1]}y` : ''}</Text></Text>
             {isSavedHole && (
               <View style={styles.editBadge}>
                 <Text style={styles.editBadgeText}>Editing</Text>

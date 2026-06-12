@@ -2,6 +2,7 @@ export type Tee = {
   name: string;
   rating: number;
   slope: number;
+  yards: number[];
 };
 
 export type PresetCourse = {
@@ -16,8 +17,8 @@ export const PRESET_COURSES: PresetCourse[] = [
     name: 'Valley Oaks - Valley Course',
     holes: 9,
     tees: [
-      { name: 'Blue', rating: 70.8, slope: 125 },
-      { name: 'White', rating: 69.1, slope: 121 },
+      { name: 'Blue', rating: 70.8, slope: 125, yards: [476, 374, 361, 396, 168, 354, 209, 402, 490] },
+      { name: 'White', rating: 69.1, slope: 121, yards: [468, 359, 335, 386, 152, 341, 200, 389, 482] },
     ],
     pars: [5, 4, 4, 4, 3, 4, 3, 4, 5],
   },
@@ -25,8 +26,8 @@ export const PRESET_COURSES: PresetCourse[] = [
     name: 'Valley Oaks - Oaks Course',
     holes: 9,
     tees: [
-      { name: 'Blue', rating: 70.8, slope: 125 },
-      { name: 'White', rating: 69.0, slope: 122 },
+      { name: 'Blue', rating: 70.8, slope: 125, yards: [369, 376, 517, 509, 151, 381, 385, 204, 432] },
+      { name: 'White', rating: 69.0, slope: 122, yards: [351, 331, 492, 501, 140, 369, 385, 189, 408] },
     ],
     pars: [4, 4, 5, 5, 3, 4, 4, 3, 4],
   },
@@ -34,8 +35,8 @@ export const PRESET_COURSES: PresetCourse[] = [
     name: 'Valley Oaks - Lakes Course',
     holes: 9,
     tees: [
-      { name: 'Blue', rating: 70.2, slope: 122 },
-      { name: 'White', rating: 68.5, slope: 118 },
+      { name: 'Blue', rating: 70.2, slope: 122, yards: [372, 480, 333, 185, 366, 362, 169, 429, 545] },
+      { name: 'White', rating: 68.5, slope: 118, yards: [359, 472, 312, 167, 358, 341, 159, 413, 516] },
     ],
     pars: [4, 5, 4, 3, 4, 4, 3, 4, 5],
   },
