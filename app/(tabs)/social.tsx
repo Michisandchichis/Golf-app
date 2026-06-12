@@ -23,6 +23,9 @@ export default function SocialScreen() {
   const [searchResults, setSearchResults] = useState<{ id: string; username: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const router = useRouter();
 
   useFocusEffect(
@@ -42,6 +45,8 @@ export default function SocialScreen() {
       return;
     }
 
+    setCurrentUserId(user.id);
+
     const { data: follows } = await supabase
       .from('follows')
       .select('following_id')
@@ -57,9 +62,42 @@ export default function SocialScreen() {
       .order('created_at', { ascending: false })
       .limit(50);
 
-    setFeedPosts((posts as Post[]) ?? []);
+    const loadedPosts = (posts as Post[]) ?? [];
+    setFeedPosts(loadedPosts);
+
+    if (loadedPosts.length > 0) {
+      const postIds = loadedPosts.map((p) => p.id);
+      const { data: likes } = await supabase
+        .from('likes')
+        .select('post_id, user_id')
+        .in('post_id', postIds);
+
+      const counts: Record<string, number> = {};
+      const liked = new Set<string>();
+      (likes ?? []).forEach((like: any) => {
+        counts[like.post_id] = (counts[like.post_id] ?? 0) + 1;
+        if (like.user_id === user.id) liked.add(like.post_id);
+      });
+      setLikeCounts(counts);
+      setLikedPostIds(liked);
+    }
+
     if (pull) setRefreshing(false);
     else setLoading(false);
+  }
+
+  async function toggleLike(postId: string) {
+    if (!currentUserId) return;
+
+    if (likedPostIds.has(postId)) {
+      await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', currentUserId);
+      setLikedPostIds((prev) => { const s = new Set(prev); s.delete(postId); return s; });
+      setLikeCounts((prev) => ({ ...prev, [postId]: Math.max((prev[postId] ?? 1) - 1, 0) }));
+    } else {
+      await supabase.from('likes').insert({ post_id: postId, user_id: currentUserId });
+      setLikedPostIds((prev) => new Set(prev).add(postId));
+      setLikeCounts((prev) => ({ ...prev, [postId]: (prev[postId] ?? 0) + 1 }));
+    }
   }
 
   async function search(q: string) {
@@ -84,6 +122,8 @@ export default function SocialScreen() {
 
   function renderPost({ item }: { item: Post }) {
     const username = (item.profiles as any)?.username ?? 'golfer';
+    const liked = likedPostIds.has(item.id);
+    const count = likeCounts[item.id] ?? 0;
     return (
       <TouchableOpacity
         style={styles.postCard}
@@ -100,6 +140,19 @@ export default function SocialScreen() {
           <Text style={styles.postHoles}>{item.total_holes} holes</Text>
         </View>
         {item.notes ? <Text style={styles.postNotes}>{item.notes}</Text> : null}
+        <View style={styles.postFooter}>
+          <TouchableOpacity
+            style={styles.likeBtn}
+            onPress={(e) => { e.stopPropagation(); toggleLike(item.id); }}
+          >
+            <Text style={[styles.likeIcon, liked && styles.likeIconActive]}>
+              {liked ? '❤️' : '🤍'}
+            </Text>
+            <Text style={[styles.likeCount, liked && styles.likeCountActive]}>
+              {count > 0 ? count : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   }
@@ -209,6 +262,12 @@ const styles = StyleSheet.create({
   postPar: { fontSize: 16, color: '#555' },
   postHoles: { fontSize: 13, color: '#999', marginLeft: 4 },
   postNotes: { marginTop: 8, fontSize: 13, color: '#666', fontStyle: 'italic' },
+  postFooter: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 10 },
+  likeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  likeIcon: { fontSize: 20 },
+  likeIconActive: {},
+  likeCount: { fontSize: 14, color: '#aaa', fontWeight: '500' },
+  likeCountActive: { color: '#e0415a' },
   empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 52 },
   emptyTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginTop: 14 },
