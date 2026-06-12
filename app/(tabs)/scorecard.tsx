@@ -196,8 +196,16 @@ export default function ScorecardScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hole entry / edit card */}
         <View style={styles.card}>
-          <View style={styles.cardTitleRow}>
-            <Text style={styles.cardTitle}>Hole {displayHole} <Text style={styles.parLabel}>· Par {par}{HOLE_YARDS[displayHole - 1] ? `  ·  ${HOLE_YARDS[displayHole - 1]}y` : ''}{HOLE_HANDICAPS[displayHole - 1] ? `  ·  HCP ${HOLE_HANDICAPS[displayHole - 1]}` : ''}</Text></Text>
+          <View style={styles.holeHeader}>
+            <View style={styles.holeNumberBadge}>
+              <Text style={styles.holeBadgeLabel}>HOLE</Text>
+              <Text style={styles.holeBadgeNumber}>{displayHole}</Text>
+            </View>
+            <View style={styles.holeDetails}>
+              <Text style={styles.holeDetailRow}>Par {par}</Text>
+              {HOLE_YARDS[displayHole - 1] ? <Text style={styles.holeDetailRow}>{HOLE_YARDS[displayHole - 1]} yards</Text> : null}
+              {HOLE_HANDICAPS[displayHole - 1] ? <Text style={styles.holeDetailRow}>Handicap {HOLE_HANDICAPS[displayHole - 1]}</Text> : null}
+            </View>
             {isSavedHole && (
               <View style={styles.editBadge}>
                 <Text style={styles.editBadgeText}>Editing</Text>
@@ -340,6 +348,23 @@ const styles = StyleSheet.create({
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
   parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
+  holeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 16 },
+  holeNumberBadge: {
+    backgroundColor: GREEN,
+    borderRadius: 16,
+    width: 80,
+    height: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: GREEN,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  holeBadgeLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', letterSpacing: 2 },
+  holeBadgeNumber: { color: '#fff', fontSize: 42, fontWeight: 'bold', lineHeight: 46 },
+  holeDetails: { flex: 1, gap: 3 },
+  holeDetailRow: { fontSize: 15, color: '#555', fontWeight: '500' },
   tapHint: { fontSize: 12, color: '#aaa', fontWeight: '400' },
   editBadge: { backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   editBadgeText: { fontSize: 12, color: '#856404', fontWeight: '600' },
