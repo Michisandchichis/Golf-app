@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { createRound, getRounds, markRoundShared, Round } from '../../lib/db';
+import { createRound, getCourse, getRounds, markRoundShared, Round } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
@@ -19,6 +19,9 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [courseName, setCourseName] = useState('');
   const [holes, setHoles] = useState<'9' | '18'>('18');
+  const [courseRating, setCourseRating] = useState('');
+  const [slopeRating, setSlopeRating] = useState('');
+  const [courseFound, setCourseFound] = useState(false);
   const [recentRounds, setRecentRounds] = useState<Round[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -59,11 +62,28 @@ export default function HomeScreen() {
     );
   }
 
+  function handleCourseNameChange(name: string) {
+    setCourseName(name);
+    const saved = getCourse(name.trim());
+    if (saved) {
+      setCourseRating(String(saved.rating));
+      setSlopeRating(String(saved.slope));
+      setCourseFound(true);
+    } else {
+      setCourseFound(false);
+    }
+  }
+
   function startRound() {
     if (!courseName.trim()) return;
-    const roundId = createRound(courseName.trim(), parseInt(holes));
+    const rating = parseFloat(courseRating) || 0;
+    const slope = parseInt(slopeRating) || 113;
+    const roundId = createRound(courseName.trim(), parseInt(holes), rating, slope);
     setModalVisible(false);
     setCourseName('');
+    setCourseRating('');
+    setSlopeRating('');
+    setCourseFound(false);
     router.push({ pathname: '/(tabs)/scorecard', params: { roundId, totalHoles: holes } });
   }
 
@@ -132,9 +152,31 @@ export default function HomeScreen() {
               style={styles.input}
               placeholder="e.g. Pebble Beach"
               value={courseName}
-              onChangeText={setCourseName}
+              onChangeText={handleCourseNameChange}
               autoFocus
             />
+
+            {courseFound && (
+              <Text style={styles.courseFoundText}>✓ Course data loaded automatically</Text>
+            )}
+
+            <Text style={styles.label}>Course Rating & Slope <Text style={styles.labelHint}>(on scorecard — needed for handicap)</Text></Text>
+            <View style={styles.ratingRow}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Rating e.g. 72.4"
+                value={courseRating}
+                onChangeText={setCourseRating}
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Slope e.g. 113"
+                value={slopeRating}
+                onChangeText={setSlopeRating}
+                keyboardType="number-pad"
+              />
+            </View>
 
             <Text style={styles.label}>Number of holes</Text>
             <View style={styles.holeToggle}>
@@ -241,6 +283,9 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#222', marginBottom: 16 },
   label: { fontSize: 13, color: '#555', marginBottom: 6, marginTop: 12 },
+  labelHint: { fontSize: 11, color: '#aaa' },
+  courseFoundText: { fontSize: 12, color: GREEN, marginTop: 4 },
+  ratingRow: { flexDirection: 'row', gap: 10 },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',

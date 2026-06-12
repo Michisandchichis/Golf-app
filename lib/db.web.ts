@@ -21,20 +21,35 @@ export type Round = {
   totalPar: number;
   notes: string;
   remoteId?: string;
+  courseRating?: number;
+  slopeRating?: number;
 };
 
 let rounds: Round[] = [];
 let holes: Hole[] = [];
+let courses: Record<string, { rating: number; slope: number }> = {};
 let nextRoundId = 1;
 let nextHoleId = 1;
 
 export function initDb() {}
 
-export function createRound(courseName: string, totalHoles: number): number {
+export function createRound(
+  courseName: string,
+  totalHoles: number,
+  courseRating = 0,
+  slopeRating = 113
+): number {
   const id = nextRoundId++;
   const date = new Date().toISOString().split('T')[0];
-  rounds.push({ id, date, courseName, totalHoles, totalScore: 0, totalPar: 0, notes: '' });
+  rounds.push({ id, date, courseName, totalHoles, totalScore: 0, totalPar: 0, notes: '', courseRating, slopeRating });
+  if (courseRating > 0) {
+    courses[courseName.toLowerCase().trim()] = { rating: courseRating, slope: slopeRating };
+  }
   return id;
+}
+
+export function getCourse(name: string): { rating: number; slope: number } | null {
+  return courses[name.toLowerCase().trim()] ?? null;
 }
 
 export function saveHole(hole: Omit<Hole, 'id'>) {
