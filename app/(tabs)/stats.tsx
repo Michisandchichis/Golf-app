@@ -15,7 +15,10 @@ type RoundStats = Round & {
 
 function calcRoundStats(round: Round, holes: Hole[]): RoundStats {
   if (holes.length === 0) return { ...round, fairwayPct: 0, girPct: 0, avgPutts: 0, totalPutts: 0 };
-  const fairwayPct = Math.round((holes.filter((h) => h.fairwayHit).length / holes.length) * 100);
+  const fwEligible = holes.filter((h) => h.par !== 3);
+  const fairwayPct = fwEligible.length > 0
+    ? Math.round((fwEligible.filter((h) => h.fairwayHit).length / fwEligible.length) * 100)
+    : 0;
   const girPct = Math.round((holes.filter((h) => h.greenInRegulation).length / holes.length) * 100);
   const totalPutts = holes.reduce((s, h) => s + h.putts, 0);
   const avgPutts = totalPutts / holes.length;
@@ -116,8 +119,8 @@ export default function StatsScreen() {
   const girRight = girMisses.filter((h) => h.girMiss === 'right').length;
   const gPct = (v: number) => girTotal > 0 ? `${Math.round((v / girTotal) * 100)}%` : '0%';
 
-  // Fairway miss tendency
-  const fwMisses = allHoles.filter((h) => !h.fairwayHit && h.fairwayMiss);
+  // Fairway miss tendency (par 3s excluded — no fairway on par 3s)
+  const fwMisses = allHoles.filter((h) => h.par !== 3 && !h.fairwayHit && h.fairwayMiss);
   const fwMissTotal = fwMisses.length;
   const fwLeft = fwMisses.filter((h) => h.fairwayMiss === 'left').length;
   const fwRight = fwMisses.filter((h) => h.fairwayMiss === 'right').length;

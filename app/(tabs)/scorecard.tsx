@@ -108,7 +108,8 @@ export default function ScorecardScreen() {
   function handleSave() {
     saveHole({
       roundId: rid, holeNumber: displayHole, par, score, putts,
-      fairwayHit, fairwayMiss: fairwayHit ? null : fairwayMiss,
+      fairwayHit: par === 3 ? false : fairwayHit,
+      fairwayMiss: par === 3 || fairwayHit ? null : fairwayMiss,
       greenInRegulation: gir, girMiss: gir ? null : girMiss,
     });
     const updated = getHoles(rid);
@@ -259,32 +260,34 @@ export default function ScorecardScreen() {
               </View>
             </View>
 
-            {/* Fairway toggle + miss direction */}
-            <View style={styles.toggleRow}>
-              <TouchableOpacity
-                style={[styles.toggle, fairwayHit && styles.toggleActive]}
-                onPress={() => { setFairwayHit(!fairwayHit); setFairwayMiss(null); }}
-              >
-                <Text style={[styles.toggleText, fairwayHit && styles.toggleTextActive]}>
-                  🌿 Fairway
-                </Text>
-              </TouchableOpacity>
-              {!fairwayHit && (
-                <View style={styles.missRow}>
-                  {(['left', 'right'] as const).map((dir) => (
-                    <TouchableOpacity
-                      key={dir}
-                      style={[styles.missBtn, fairwayMiss === dir && styles.missBtnActive]}
-                      onPress={() => setFairwayMiss(fairwayMiss === dir ? null : dir)}
-                    >
-                      <Text style={[styles.missBtnText, fairwayMiss === dir && styles.missBtnTextActive]}>
-                        {dir === 'left' ? '← L' : 'R →'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
+            {/* Fairway toggle + miss direction (par 3s don't have fairways) */}
+            {par !== 3 && (
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggle, fairwayHit && styles.toggleActive]}
+                  onPress={() => { setFairwayHit(!fairwayHit); setFairwayMiss(null); }}
+                >
+                  <Text style={[styles.toggleText, fairwayHit && styles.toggleTextActive]}>
+                    🌿 Fairway
+                  </Text>
+                </TouchableOpacity>
+                {!fairwayHit && (
+                  <View style={styles.missRow}>
+                    {(['left', 'right'] as const).map((dir) => (
+                      <TouchableOpacity
+                        key={dir}
+                        style={[styles.missBtn, fairwayMiss === dir && styles.missBtnActive]}
+                        onPress={() => setFairwayMiss(fairwayMiss === dir ? null : dir)}
+                      >
+                        <Text style={[styles.missBtnText, fairwayMiss === dir && styles.missBtnTextActive]}>
+                          {dir === 'left' ? '← L' : 'R →'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* GIR toggle + miss direction compass */}
             <View style={styles.girRow}>
@@ -354,8 +357,8 @@ export default function ScorecardScreen() {
               const diff = h.score - h.par;
               const isActiveRow = h.holeNumber === displayHole;
               const puttColor = h.putts <= 1 ? GREEN : h.putts === 2 ? '#bbb' : '#e07000';
-              const fwIcon = h.fairwayHit ? '✓' : '·';
-              const fwColor = h.fairwayHit ? GREEN : '#bbb';
+              const fwIcon = h.par === 3 ? '—' : h.fairwayHit ? '✓' : '·';
+              const fwColor = h.par === 3 ? '#ddd' : h.fairwayHit ? GREEN : '#bbb';
               const girIcon = h.greenInRegulation ? '✓' : '·';
               const girColor = h.greenInRegulation ? GREEN : '#bbb';
               return (
@@ -378,7 +381,8 @@ export default function ScorecardScreen() {
             })}
             {/* Footer: total putts, FW%, GIR% */}
             {(() => {
-              const fwHit = savedHoles.filter((h) => h.fairwayHit).length;
+              const fwEligible = savedHoles.filter((h) => h.par !== 3);
+              const fwHit = fwEligible.filter((h) => h.fairwayHit).length;
               const girHit = savedHoles.filter((h) => h.greenInRegulation).length;
               const totalPutts = savedHoles.reduce((s, h) => s + h.putts, 0);
               const total = savedHoles.length;
@@ -388,7 +392,7 @@ export default function ScorecardScreen() {
                     {totalPutts} putts
                   </Text>
                   <Text style={styles.tableFooterText}>
-                    FW {fwHit}/{total} ({Math.round(fwHit / total * 100)}%)
+                    FW {fwHit}/{fwEligible.length}{fwEligible.length > 0 ? ` (${Math.round(fwHit / fwEligible.length * 100)}%)` : ''}
                   </Text>
                   <Text style={styles.tableFooterText}>
                     GIR {girHit}/{total} ({Math.round(girHit / total * 100)}%)
