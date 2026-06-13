@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
+import NewRoundSheet from '../../components/NewRoundSheet';
 import { useFocusEffect } from 'expo-router';
 
 const DEFAULT_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5];
@@ -42,6 +43,7 @@ export default function ScorecardScreen() {
   const [girMiss, setGirMiss] = useState<'long' | 'short' | 'left' | 'right' | null>(null);
   const [penalties, setPenalties] = useState(0);
   const [roundComplete, setRoundComplete] = useState<{ score: number; diff: number } | null>(null);
+  const [showNewRound, setShowNewRound] = useState(false);
 
   function loadHoleIntoForm(holeNum: number, holes: Hole[]) {
     const saved = holes.find((h) => h.holeNumber === holeNum);
@@ -418,6 +420,7 @@ export default function ScorecardScreen() {
         )}
       </ScrollView>
       {/* Round complete overlay */}
+      <NewRoundSheet visible={showNewRound} onClose={() => setShowNewRound(false)} />
       {!!roundComplete && (
         <View style={styles.completeOverlay}>
           <View style={styles.completeCard}>
@@ -429,7 +432,7 @@ export default function ScorecardScreen() {
             </Text>
             <TouchableOpacity
               style={styles.completeBtn}
-              onPress={() => { setRoundComplete(null); router.push({ pathname: '/(tabs)', params: { openNew: '1' } }); }}
+              onPress={() => { setRoundComplete(null); setShowNewRound(true); }}
             >
               <Text style={styles.completeBtnText}>Start New Round</Text>
             </TouchableOpacity>
