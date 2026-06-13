@@ -197,28 +197,35 @@ export default function ScorecardScreen() {
         {/* Hole entry / edit card */}
         <View style={styles.card}>
           <View style={styles.holeHeader}>
-            {/* Flag scene — no number inside */}
+            {/* Cursive "Hole X" on the left */}
+            <Text style={styles.holeCursiveLabel}>Hole {displayHole}</Text>
+
+            {/* Flag + putting green scene on the right */}
             <View style={styles.greenScene}>
-              <View style={styles.flagBanner} />
+              <View style={styles.puttingGreen} />
               <View style={styles.flagPole} />
-              <View style={styles.puttingGreenOval} />
+              <View style={styles.flagRect}>
+                <Text style={styles.flagNum}>{displayHole}</Text>
+              </View>
+              <View style={styles.holeCup} />
             </View>
 
-            {/* Big hole number beside the flag */}
-            <Text style={styles.holeSceneNumber}>{displayHole}</Text>
-
-            {/* Details */}
-            <View style={styles.holeDetails}>
-              <Text style={styles.holeDetailLabel}>HOLE</Text>
-              <Text style={styles.holeDetailRow}>Par {par}</Text>
-              {HOLE_YARDS[displayHole - 1] ? <Text style={styles.holeDetailRow}>{HOLE_YARDS[displayHole - 1]} yards</Text> : null}
-              {HOLE_HANDICAPS[displayHole - 1] ? <Text style={styles.holeDetailRow}>HCP {HOLE_HANDICAPS[displayHole - 1]}</Text> : null}
-            </View>
             {isSavedHole && (
               <View style={styles.editBadge}>
                 <Text style={styles.editBadgeText}>Editing</Text>
               </View>
             )}
+          </View>
+
+          {/* Par / yards / handicap chips */}
+          <View style={styles.holeStatsRow}>
+            <Text style={styles.holeStatChip}>Par {par}</Text>
+            {HOLE_YARDS[displayHole - 1] ? (
+              <Text style={styles.holeStatChip}>{HOLE_YARDS[displayHole - 1]} yds</Text>
+            ) : null}
+            {HOLE_HANDICAPS[displayHole - 1] ? (
+              <Text style={styles.holeStatChip}>HCP {HOLE_HANDICAPS[displayHole - 1]}</Text>
+            ) : null}
           </View>
 
           <View style={styles.row}>
@@ -356,48 +363,83 @@ const styles = StyleSheet.create({
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
   parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
-  holeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 16 },
+  holeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  holeCursiveLabel: {
+    fontSize: 40,
+    fontStyle: 'italic',
+    fontFamily: 'Georgia, serif',
+    color: '#1a1a1a',
+    flex: 1,
+  },
   greenScene: {
-    width: 42,
-    height: 100,
+    width: 110,
+    height: 76,
     position: 'relative',
   },
-  flagBanner: {
-    position: 'absolute',
-    top: 4,
-    left: 20,
-    width: 18,
-    height: 13,
-    backgroundColor: '#e63946',
-    borderRadius: 2,
-  },
-  flagPole: {
-    position: 'absolute',
-    top: 4,
-    left: 18,
-    width: 2.5,
-    height: 76,
-    backgroundColor: '#555',
-  },
-  puttingGreenOval: {
+  puttingGreen: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 18,
-    backgroundColor: '#3a7a3a',
-    borderRadius: 9,
+    height: 46,
+    backgroundColor: '#4a9940',
+    borderTopLeftRadius: 55,
+    borderTopRightRadius: 40,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 28,
   },
-  holeSceneNumber: {
-    fontSize: 64,
+  flagPole: {
+    position: 'absolute',
+    bottom: 22,
+    right: 52,
+    width: 2,
+    height: 52,
+    backgroundColor: '#777',
+  },
+  flagRect: {
+    position: 'absolute',
+    top: 2,
+    right: 54,
+    width: 28,
+    height: 21,
+    backgroundColor: '#e63946',
+    borderRadius: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagNum: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: 'bold',
-    color: GREEN,
-    lineHeight: 70,
-    alignSelf: 'center',
   },
-  holeDetails: { flex: 1, justifyContent: 'center', gap: 4, paddingLeft: 4 },
-  holeDetailLabel: { fontSize: 11, fontWeight: '700', color: '#aaa', letterSpacing: 2 },
-  holeDetailRow: { fontSize: 14, color: '#444', fontWeight: '500' },
+  holeCup: {
+    position: 'absolute',
+    bottom: 18,
+    right: 50,
+    width: 7,
+    height: 5,
+    backgroundColor: '#2a3a1a',
+    borderRadius: 4,
+  },
+  holeStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  holeStatChip: {
+    backgroundColor: '#edf7ed',
+    color: GREEN,
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
   tapHint: { fontSize: 12, color: '#aaa', fontWeight: '400' },
   editBadge: { backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   editBadgeText: { fontSize: 12, color: '#856404', fontWeight: '600' },
