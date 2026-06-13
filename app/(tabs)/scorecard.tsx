@@ -209,74 +209,76 @@ export default function ScorecardScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hole entry / edit card */}
         <View style={styles.card}>
-          <View style={styles.holeHeader}>
-            <Image
-              source={HOLE_IMAGES[displayHole] ?? HOLE_IMAGES[1]}
-              style={styles.holeImage}
-              resizeMode="contain"
-            />
+          {/* Full-bleed image — no padding, clips to card's rounded corners */}
+          <Image
+            source={HOLE_IMAGES[displayHole] ?? HOLE_IMAGES[1]}
+            style={styles.holeImage}
+            resizeMode="cover"
+          />
+
+          <View style={styles.cardContent}>
             {isSavedHole && (
               <View style={styles.editBadge}>
                 <Text style={styles.editBadgeText}>Editing</Text>
               </View>
             )}
-          </View>
 
-          {/* Par / yards / handicap chips */}
-          <View style={styles.holeStatsRow}>
-            <Text style={styles.holeStatChip}>Par {par}</Text>
-            {HOLE_YARDS[displayHole - 1] ? (
-              <Text style={styles.holeStatChip}>{HOLE_YARDS[displayHole - 1]} yds</Text>
-            ) : null}
-            {HOLE_HANDICAPS[displayHole - 1] ? (
-              <Text style={styles.holeStatChip}>HCP {HOLE_HANDICAPS[displayHole - 1]}</Text>
-            ) : null}
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.rowLabel}>Score</Text>
-              <Counter value={score} onChange={setScore} min={1} />
+            {/* Par / yards / handicap chips */}
+            <View style={styles.holeStatsRow}>
+              <Text style={styles.holeStatChip}>Par {par}</Text>
+              {HOLE_YARDS[displayHole - 1] ? (
+                <Text style={styles.holeStatChip}>{HOLE_YARDS[displayHole - 1]} yds</Text>
+              ) : null}
+              {HOLE_HANDICAPS[displayHole - 1] ? (
+                <Text style={styles.holeStatChip}>HCP {HOLE_HANDICAPS[displayHole - 1]}</Text>
+              ) : null}
             </View>
-            <View style={styles.rowItem}>
-              <Text style={[styles.scoreDiff, { color: scoreColor }]}>
-                {scoreDiff === 0 ? 'E' : scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
-              </Text>
-            </View>
-          </View>
 
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.rowLabel}>Putts</Text>
-              <Counter value={putts} onChange={setPutts} min={0} />
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <Text style={styles.rowLabel}>Score</Text>
+                <Counter value={score} onChange={setScore} min={1} />
+              </View>
+              <View style={styles.rowItem}>
+                <Text style={[styles.scoreDiff, { color: scoreColor }]}>
+                  {scoreDiff === 0 ? 'E' : scoreDiff > 0 ? `+${scoreDiff}` : scoreDiff}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.toggleRow}>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <Text style={styles.rowLabel}>Putts</Text>
+                <Counter value={putts} onChange={setPutts} min={0} />
+              </View>
+            </View>
+
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggle, fairwayHit && styles.toggleActive]}
+                onPress={() => setFairwayHit(!fairwayHit)}
+              >
+                <Text style={[styles.toggleText, fairwayHit && styles.toggleTextActive]}>
+                  🌿 Fairway
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggle, gir && styles.toggleActive]}
+                onPress={() => setGir(!gir)}
+              >
+                <Text style={[styles.toggleText, gir && styles.toggleTextActive]}>
+                  🏌️ GIR
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
-              style={[styles.toggle, fairwayHit && styles.toggleActive]}
-              onPress={() => setFairwayHit(!fairwayHit)}
+              style={[styles.nextBtn, isSavedHole && styles.updateBtn]}
+              onPress={handleSave}
             >
-              <Text style={[styles.toggleText, fairwayHit && styles.toggleTextActive]}>
-                🌿 Fairway
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggle, gir && styles.toggleActive]}
-              onPress={() => setGir(!gir)}
-            >
-              <Text style={[styles.toggleText, gir && styles.toggleTextActive]}>
-                🏌️ GIR
-              </Text>
+              <Text style={styles.nextBtnText}>{btnLabel}</Text>
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity
-            style={[styles.nextBtn, isSavedHole && styles.updateBtn]}
-            onPress={handleSave}
-          >
-            <Text style={styles.nextBtnText}>{btnLabel}</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Scorecard table — tap any row to edit that hole */}
@@ -359,22 +361,21 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 3,
   },
+  cardContent: {
+    padding: 16,
+  },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
   parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
-  holeHeader: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
   holeImage: {
     width: '100%',
-    height: 160,
+    height: 180,
   },
   holeStatsRow: {
     flexDirection: 'row',
