@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
@@ -419,17 +418,15 @@ export default function ScorecardScreen() {
         )}
       </ScrollView>
       {/* Round complete overlay */}
-      <Modal visible={!!roundComplete} transparent animationType="fade">
+      {!!roundComplete && (
         <View style={styles.completeOverlay}>
           <View style={styles.completeCard}>
             <Text style={styles.completeTrophy}>🏆</Text>
             <Text style={styles.completeTitle}>Round Complete!</Text>
-            {roundComplete && (
-              <Text style={styles.completeScore}>
-                {roundComplete.score}  (
-                {roundComplete.diff >= 0 ? '+' : ''}{roundComplete.diff})
-              </Text>
-            )}
+            <Text style={styles.completeScore}>
+              {roundComplete.score}{'  '}(
+              {roundComplete.diff >= 0 ? '+' : ''}{roundComplete.diff})
+            </Text>
             <TouchableOpacity
               style={styles.completeBtn}
               onPress={() => { setRoundComplete(null); router.push({ pathname: '/(tabs)', params: { openNew: '1' } }); }}
@@ -450,7 +447,7 @@ export default function ScorecardScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -670,7 +667,9 @@ const styles = StyleSheet.create({
   },
   tableFooterText: { fontSize: 13, fontWeight: '600', color: GREEN },
   completeOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 32,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 32,
+    zIndex: 999,
   },
   completeCard: {
     backgroundColor: '#fff', borderRadius: 20, padding: 32, width: '100%', alignItems: 'center',
