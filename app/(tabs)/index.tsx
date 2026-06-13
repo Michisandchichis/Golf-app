@@ -7,10 +7,9 @@ import {
   TextInput,
   SafeAreaView,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { createRound, getRounds, markRoundShared, Round } from '../../lib/db';
+import { createRound, getRounds } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { searchCourses, PresetCourse, Tee } from '../../lib/courses';
@@ -25,7 +24,7 @@ export default function HomeScreen() {
   const [suggestions, setSuggestions] = useState<PresetCourse[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<PresetCourse | null>(null);
   const [selectedTee, setSelectedTee] = useState<Tee | null>(null);
-  const [recentRounds, setRecentRounds] = useState<Round[]>([]);
+  const [hasRounds, setHasRounds] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,34 +35,10 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setRecentRounds(getRounds().slice(0, 5));
+      const rounds = getRounds().filter((r) => r.totalScore > 0);
+      setHasRounds(rounds.length > 0);
     }, [])
   );
-
-  async function shareRound(round: Round) {
-    if (!userId || !round.id) return;
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
-        user_id: userId,
-        course_name: round.courseName,
-        total_score: round.totalScore,
-        total_par: round.totalPar,
-        total_holes: round.totalHoles,
-        date: round.date,
-        notes: round.notes || null,
-      })
-      .select()
-      .single();
-    if (error) {
-      Alert.alert('Could not share', error.message);
-      return;
-    }
-    markRoundShared(round.id, data.id);
-    setRecentRounds((prev) =>
-      prev.map((r) => (r.id === round.id ? { ...r, remoteId: data.id } : r))
-    );
-  }
 
   function handleCourseNameChange(name: string) {
     setCourseName(name);
@@ -112,12 +87,6 @@ export default function HomeScreen() {
     });
   }
 
-  function scoreToPar(score: number, par: number) {
-    const diff = score - par;
-    if (diff === 0) return 'E';
-    return diff > 0 ? `+${diff}` : `${diff}`;
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -137,32 +106,10 @@ export default function HomeScreen() {
           <Text style={styles.startBtnText}>Start New Round</Text>
         </TouchableOpacity>
 
-        {recentRounds.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Rounds</Text>
-            {recentRounds.map((r) => (
-              <View key={r.id} style={styles.roundCard}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.roundCourse}>{r.courseName}</Text>
-                  <Text style={styles.roundDate}>{r.date} · {r.totalHoles} holes</Text>
-                </View>
-                <View style={styles.roundRight}>
-                  {r.totalScore > 0 && (
-                    <View style={styles.scoreBadge}>
-                      <Text style={styles.scoreBadgeText}>{r.totalScore}</Text>
-                      <Text style={styles.scoreParText}>{scoreToPar(r.totalScore, r.totalPar)}</Text>
-                    </View>
-                  )}
-                  {r.totalScore > 0 && !r.remoteId && (
-                    <TouchableOpacity style={styles.shareBtn} onPress={() => shareRound(r)}>
-                      <Text style={styles.shareBtnText}>Share</Text>
-                    </TouchableOpacity>
-                  )}
-                  {r.remoteId && <Text style={styles.sharedText}>Shared ✓</Text>}
-                </View>
-              </View>
-            ))}
-          </View>
+        {hasRounds && (
+          <TouchableOpacity style={styles.historyBtn} onPress={() => router.push('/(tabs)/stats')}>
+            <Text style={styles.historyBtnText}>📋  Round History</Text>
+          </TouchableOpacity>
         )}
       </ScrollView>
 
@@ -299,34 +246,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   startBtnText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 10 },
-  roundCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
-    flexDirection: 'row',
+  historyBtn: {
+    borderWidth: 1.5,
+    borderColor: GREEN,
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: 16,
   },
-  roundCourse: { fontSize: 15, fontWeight: '600', color: '#222' },
-  roundDate: { fontSize: 12, color: '#888', marginTop: 2 },
-  roundRight: { alignItems: 'flex-end', gap: 6 },
-  scoreBadge: { alignItems: 'center', minWidth: 48 },
-  shareBtn: {
-    backgroundColor: GREEN,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  shareBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  sharedText: { fontSize: 12, color: '#888' },
-  scoreBadgeText: { fontSize: 20, fontWeight: 'bold', color: GREEN },
-  scoreParText: { fontSize: 12, color: '#666' },
+  historyBtnText: { color: GREEN, fontSize: 16, fontWeight: '600' },
   modalOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
