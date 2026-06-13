@@ -396,15 +396,15 @@ const styles = StyleSheet.create({
   flagPole: {
     position: 'absolute',
     bottom: 22,
-    right: 52,
+    left: 44,
     width: 2,
     height: 52,
-    backgroundColor: '#777',
+    backgroundColor: '#888',
   },
   flagRect: {
     position: 'absolute',
     top: 2,
-    right: 54,
+    left: 46,
     width: 28,
     height: 21,
     backgroundColor: '#e63946',
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   holeCup: {
     position: 'absolute',
     bottom: 18,
-    right: 50,
+    left: 42,
     width: 7,
     height: 5,
     backgroundColor: '#2a3a1a',
