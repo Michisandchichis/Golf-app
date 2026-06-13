@@ -184,10 +184,16 @@ export default function StatsScreen() {
             </View>
 
             {/* Handicap trend chart */}
-            {hcapHistory.length >= 3 && (
+            {handicap !== null && (
               <View style={styles.card}>
                 <Text style={styles.sectionTitle}>Handicap Trend</Text>
-                <HandicapLineGraph data={hcapHistory} />
+                {hcapHistory.length >= 2 ? (
+                  <HandicapLineGraph data={hcapHistory} />
+                ) : (
+                  <Text style={styles.noDataText}>
+                    Log 1 more rated round to see your handicap trend
+                  </Text>
+                )}
               </View>
             )}
 
