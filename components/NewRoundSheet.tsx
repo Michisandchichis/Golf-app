@@ -64,7 +64,7 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
     onClose();
     router.replace({
       pathname: '/(tabs)/scorecard',
-      params: { roundId, totalHoles: holes, pars: pars.join(','), yards: yards.join(','), handicaps: handicaps.join(',') },
+      params: { roundId, totalHoles: holes, courseName: courseName.trim(), pars: pars.join(','), yards: yards.join(','), handicaps: handicaps.join(',') },
     });
   }
 

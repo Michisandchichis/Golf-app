@@ -16,9 +16,10 @@ const DEFAULT_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5];
 const GREEN = '#2d6a2d';
 
 export default function ScorecardScreen() {
-  const { roundId, totalHoles, pars: parsParam, yards: yardsParam, handicaps: handicapsParam } = useLocalSearchParams<{
+  const { roundId, totalHoles, courseName, pars: parsParam, yards: yardsParam, handicaps: handicapsParam } = useLocalSearchParams<{
     roundId: string;
     totalHoles: string;
+    courseName: string;
     pars: string;
     yards: string;
     handicaps: string;
@@ -174,11 +175,14 @@ export default function ScorecardScreen() {
         <TouchableOpacity style={styles.homeBtn} onPress={() => router.push('/(tabs)')}>
           <Text style={styles.homeBtnText}>⌂ Home</Text>
         </TouchableOpacity>
-        <Text style={styles.totalScore}>
-          {savedHoles.length > 0
-            ? `${totalScore}  (${runningToPar >= 0 ? '+' : ''}${runningToPar})`
-            : 'Score: —'}
-        </Text>
+        <View style={styles.topBarCenter}>
+          {courseName ? <Text style={styles.topBarCourse}>{courseName}</Text> : null}
+          <Text style={styles.totalScore}>
+            {savedHoles.length > 0
+              ? `${totalScore}  (${runningToPar >= 0 ? '+' : ''}${runningToPar})`
+              : 'Score: —'}
+          </Text>
+        </View>
       </View>
 
       {/* Hole selector */}
@@ -472,6 +476,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   homeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  topBarCenter: { flex: 1, alignItems: 'flex-end' },
+  topBarCourse: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '500', marginBottom: 1 },
   totalScore: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   holeSelectorWrap: {
     backgroundColor: '#fff',
