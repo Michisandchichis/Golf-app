@@ -438,9 +438,15 @@ export default function ScorecardScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.completeBtnOutline}
+              onPress={() => setRoundComplete(null)}
+            >
+              <Text style={styles.completeBtnOutlineText}>Edit Round</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.completeBtnGhost}
               onPress={() => { setRoundComplete(null); router.push('/(tabs)'); }}
             >
-              <Text style={styles.completeBtnOutlineText}>Done</Text>
+              <Text style={styles.completeBtnGhostText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -679,10 +685,12 @@ const styles = StyleSheet.create({
   },
   completeBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   completeBtnOutline: {
-    borderWidth: 1.5, borderColor: '#ccc', borderRadius: 12, paddingVertical: 14,
-    alignItems: 'center', width: '100%',
+    borderWidth: 1.5, borderColor: GREEN, borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center', width: '100%', marginBottom: 10,
   },
-  completeBtnOutlineText: { color: '#888', fontSize: 16, fontWeight: '600' },
+  completeBtnOutlineText: { color: GREEN, fontSize: 16, fontWeight: '600' },
+  completeBtnGhost: { paddingVertical: 12, alignItems: 'center', width: '100%' },
+  completeBtnGhostText: { color: '#aaa', fontSize: 15 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 12 },
