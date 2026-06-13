@@ -11,10 +11,13 @@ type RoundStats = Round & {
   girPct: number;
   avgPutts: number;
   totalPutts: number;
+  scrambling: number;
+  threePuttPct: number;
+  totalPenalties: number;
 };
 
 function calcRoundStats(round: Round, holes: Hole[]): RoundStats {
-  if (holes.length === 0) return { ...round, fairwayPct: 0, girPct: 0, avgPutts: 0, totalPutts: 0 };
+  if (holes.length === 0) return { ...round, fairwayPct: 0, girPct: 0, avgPutts: 0, totalPutts: 0, scrambling: 0, threePuttPct: 0, totalPenalties: 0 };
   const fwEligible = holes.filter((h) => h.par !== 3);
   const fairwayPct = fwEligible.length > 0
     ? Math.round((fwEligible.filter((h) => h.fairwayHit).length / fwEligible.length) * 100)
@@ -22,7 +25,13 @@ function calcRoundStats(round: Round, holes: Hole[]): RoundStats {
   const girPct = Math.round((holes.filter((h) => h.greenInRegulation).length / holes.length) * 100);
   const totalPutts = holes.reduce((s, h) => s + h.putts, 0);
   const avgPutts = totalPutts / holes.length;
-  return { ...round, fairwayPct, girPct, avgPutts, totalPutts };
+  const scrambOpps = holes.filter((h) => !h.greenInRegulation);
+  const scrambling = scrambOpps.length > 0
+    ? Math.round(scrambOpps.filter((h) => h.score <= h.par).length / scrambOpps.length * 100)
+    : 0;
+  const threePuttPct = Math.round(holes.filter((h) => h.putts >= 3).length / holes.length * 100);
+  const totalPenalties = holes.reduce((s, h) => s + (h.penalties ?? 0), 0);
+  return { ...round, fairwayPct, girPct, avgPutts, totalPutts, scrambling, threePuttPct, totalPenalties };
 }
 
 function diffsToUse(n: number): number {
@@ -101,6 +110,18 @@ export default function StatsScreen() {
   const fwTrend = trend(last5Fw, avgFw, true);
   const girTrend = trend(last5Gir, avgGir, true);
   const puttsTrend = trend(last5Putts, avgPuttsNum, false);
+
+  const avgScrambling = n > 0 ? Math.round(rounds.reduce((s, r) => s + r.scrambling, 0) / n) : null;
+  const avgThreePuttPct = n > 0 ? Math.round(rounds.reduce((s, r) => s + r.threePuttPct, 0) / n) : null;
+  const avgPenalties = n > 0 ? (rounds.reduce((s, r) => s + r.totalPenalties, 0) / n).toFixed(1) : null;
+
+  const last5Scrambling = hasEnoughForTrend ? Math.round(last5.reduce((s, r) => s + r.scrambling, 0) / last5.length) : null;
+  const last5ThreePutt = hasEnoughForTrend ? Math.round(last5.reduce((s, r) => s + r.threePuttPct, 0) / last5.length) : null;
+  const last5Penalties = hasEnoughForTrend ? last5.reduce((s, r) => s + r.totalPenalties, 0) / last5.length : null;
+
+  const scrambTrend = trend(last5Scrambling, avgScrambling, true);
+  const threePuttTrend = trend(last5ThreePutt, avgThreePuttPct, false);
+  const penTrend = trend(last5Penalties, avgPenalties !== null ? parseFloat(avgPenalties) : null, false);
 
   // Scoring by par type
   const parGroups = [3, 4, 5].map((par) => {
@@ -190,6 +211,32 @@ export default function StatsScreen() {
                     {puttsTrend.arrow ? <Text style={[styles.trendArrow, { color: puttsTrend.color }]}>{puttsTrend.arrow}</Text> : null}
                   </Text>
                   <Text style={styles.bigStatLabel}>Putts/Hole</Text>
+                </View>
+              </View>
+              <View style={styles.bigStatDividerH} />
+              <View style={styles.bigStatRow}>
+                <View style={styles.bigStatItem}>
+                  <Text style={styles.bigStatValue}>
+                    {avgScrambling !== null ? `${avgScrambling}%` : '—'}
+                    {scrambTrend.arrow ? <Text style={[styles.trendArrow, { color: scrambTrend.color }]}>{scrambTrend.arrow}</Text> : null}
+                  </Text>
+                  <Text style={styles.bigStatLabel}>Scrambling</Text>
+                </View>
+                <View style={styles.bigStatDivider} />
+                <View style={styles.bigStatItem}>
+                  <Text style={styles.bigStatValue}>
+                    {avgThreePuttPct !== null ? `${avgThreePuttPct}%` : '—'}
+                    {threePuttTrend.arrow ? <Text style={[styles.trendArrow, { color: threePuttTrend.color }]}>{threePuttTrend.arrow}</Text> : null}
+                  </Text>
+                  <Text style={styles.bigStatLabel}>3-Putt %</Text>
+                </View>
+                <View style={styles.bigStatDivider} />
+                <View style={styles.bigStatItem}>
+                  <Text style={styles.bigStatValue}>
+                    {avgPenalties ?? '—'}
+                    {penTrend.arrow ? <Text style={[styles.trendArrow, { color: penTrend.color }]}>{penTrend.arrow}</Text> : null}
+                  </Text>
+                  <Text style={styles.bigStatLabel}>Pen/Round</Text>
                 </View>
               </View>
               {hasEnoughForTrend && (
@@ -296,9 +343,10 @@ export default function StatsScreen() {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.statRow}>
-                  <StatPill label="Fairways" value={`${r.fairwayPct}%`} />
                   <StatPill label="GIR" value={`${r.girPct}%`} />
-                  <StatPill label="Putts" value={`${r.totalPutts}`} />
+                  <StatPill label="Scramble" value={`${r.scrambling}%`} />
+                  <StatPill label="3-Putt" value={`${r.threePuttPct}%`} />
+                  <StatPill label="Penalties" value={`${r.totalPenalties}`} highlight={r.totalPenalties > 0} />
                 </View>
               </View>
             ))}
@@ -309,10 +357,10 @@ export default function StatsScreen() {
   );
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <View style={styles.pill}>
-      <Text style={styles.pillValue}>{value}</Text>
+      <Text style={[styles.pillValue, highlight && { color: '#c62828' }]}>{value}</Text>
       <Text style={styles.pillLabel}>{label}</Text>
     </View>
   );
@@ -351,6 +399,7 @@ const styles = StyleSheet.create({
   trendArrow: { fontSize: 20, fontWeight: 'bold' },
   bigStatLabel: { fontSize: 12, color: '#888', marginTop: 4 },
   bigStatDivider: { width: 1, height: 44, backgroundColor: '#eee' },
+  bigStatDividerH: { height: 1, backgroundColor: '#eee', marginVertical: 14 },
   trendNote: { fontSize: 11, color: '#bbb', textAlign: 'center', marginTop: 12 },
   parRow: { flexDirection: 'row', gap: 8 },
   parCard: {

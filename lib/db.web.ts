@@ -12,6 +12,7 @@ export type Hole = {
   greenInRegulation: boolean;
   girMiss?: 'long' | 'short' | 'left' | 'right' | null;
   fairwayMiss?: 'left' | 'right' | null;
+  penalties?: number;
 };
 
 export type Round = {

@@ -13,6 +13,7 @@ export type Hole = {
   greenInRegulation: boolean;
   girMiss?: 'long' | 'short' | 'left' | 'right' | null;
   fairwayMiss?: 'left' | 'right' | null;
+  penalties?: number;
 };
 
 export type Round = {
@@ -66,6 +67,7 @@ export function initDb() {
   try { db.execSync('ALTER TABLE rounds ADD COLUMN slopeRating INTEGER DEFAULT 113'); } catch {}
   try { db.execSync('ALTER TABLE holes ADD COLUMN girMiss TEXT'); } catch {}
   try { db.execSync('ALTER TABLE holes ADD COLUMN fairwayMiss TEXT'); } catch {}
+  try { db.execSync('ALTER TABLE holes ADD COLUMN penalties INTEGER DEFAULT 0'); } catch {}
 }
 
 export function markRoundShared(roundId: number, remoteId: string) {
@@ -105,8 +107,8 @@ export function getCourse(name: string): { rating: number; slope: number } | nul
 export function saveHole(hole: Omit<Hole, 'id'>) {
   db.runSync(
     `INSERT OR REPLACE INTO holes
-      (roundId, holeNumber, par, score, putts, fairwayHit, greenInRegulation, girMiss, fairwayMiss)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (roundId, holeNumber, par, score, putts, fairwayHit, greenInRegulation, girMiss, fairwayMiss, penalties)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       hole.roundId,
       hole.holeNumber,
@@ -117,6 +119,7 @@ export function saveHole(hole: Omit<Hole, 'id'>) {
       hole.greenInRegulation ? 1 : 0,
       hole.girMiss ?? null,
       hole.fairwayMiss ?? null,
+      hole.penalties ?? 0,
     ]
   );
 }

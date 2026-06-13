@@ -41,6 +41,7 @@ export default function ScorecardScreen() {
   const [fairwayMiss, setFairwayMiss] = useState<'left' | 'right' | null>(null);
   const [gir, setGir] = useState(false);
   const [girMiss, setGirMiss] = useState<'long' | 'short' | 'left' | 'right' | null>(null);
+  const [penalties, setPenalties] = useState(0);
 
   function loadHoleIntoForm(holeNum: number, holes: Hole[]) {
     const saved = holes.find((h) => h.holeNumber === holeNum);
@@ -52,6 +53,7 @@ export default function ScorecardScreen() {
       setFairwayMiss(saved.fairwayMiss ?? null);
       setGir(!!saved.greenInRegulation);
       setGirMiss(saved.girMiss ?? null);
+      setPenalties(saved.penalties ?? 0);
     } else {
       const p = HOLE_PARS[holeNum - 1] ?? DEFAULT_PARS[holeNum - 1] ?? 4;
       setPar(p);
@@ -61,6 +63,7 @@ export default function ScorecardScreen() {
       setFairwayMiss(null);
       setGir(false);
       setGirMiss(null);
+      setPenalties(0);
     }
   }
 
@@ -111,6 +114,7 @@ export default function ScorecardScreen() {
       fairwayHit: par === 3 ? false : fairwayHit,
       fairwayMiss: par === 3 || fairwayHit ? null : fairwayMiss,
       greenInRegulation: gir, girMiss: gir ? null : girMiss,
+      penalties,
     });
     const updated = getHoles(rid);
     setSavedHoles(updated);
@@ -258,6 +262,10 @@ export default function ScorecardScreen() {
                 <Text style={styles.rowLabel}>Putts</Text>
                 <Counter value={putts} onChange={setPutts} min={0} />
               </View>
+              <View style={styles.rowItem}>
+                <Text style={[styles.rowLabel, penalties > 0 && { color: '#c62828' }]}>Penalties</Text>
+                <Counter value={penalties} onChange={setPenalties} min={0} />
+              </View>
             </View>
 
             {/* Fairway toggle + miss direction (par 3s don't have fairways) */}
@@ -352,6 +360,7 @@ export default function ScorecardScreen() {
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>Putts</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>FW</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>GIR</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>Pen</Text>
             </View>
             {savedHoles.map((h) => {
               const diff = h.score - h.par;
@@ -376,6 +385,9 @@ export default function ScorecardScreen() {
                   <Text style={[styles.tableCell, styles.cellMiss, { color: puttColor, fontWeight: '700' }]}>{h.putts}</Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: fwColor, fontWeight: '700' }]}>{fwIcon}</Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: girColor, fontWeight: '700' }]}>{girIcon}</Text>
+                  <Text style={[styles.tableCell, styles.cellMiss, { color: (h.penalties ?? 0) > 0 ? '#c62828' : '#ddd', fontWeight: '700' }]}>
+                    {(h.penalties ?? 0) > 0 ? h.penalties : '·'}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -385,18 +397,20 @@ export default function ScorecardScreen() {
               const fwHit = fwEligible.filter((h) => h.fairwayHit).length;
               const girHit = savedHoles.filter((h) => h.greenInRegulation).length;
               const totalPutts = savedHoles.reduce((s, h) => s + h.putts, 0);
+              const totalPens = savedHoles.reduce((s, h) => s + (h.penalties ?? 0), 0);
               const total = savedHoles.length;
               return (
                 <View style={styles.tableFooter}>
-                  <Text style={styles.tableFooterText}>
-                    {totalPutts} putts
-                  </Text>
+                  <Text style={styles.tableFooterText}>{totalPutts} putts</Text>
                   <Text style={styles.tableFooterText}>
                     FW {fwHit}/{fwEligible.length}{fwEligible.length > 0 ? ` (${Math.round(fwHit / fwEligible.length * 100)}%)` : ''}
                   </Text>
                   <Text style={styles.tableFooterText}>
                     GIR {girHit}/{total} ({Math.round(girHit / total * 100)}%)
                   </Text>
+                  {totalPens > 0 && (
+                    <Text style={[styles.tableFooterText, { color: '#c62828' }]}>{totalPens} pen</Text>
+                  )}
                 </View>
               );
             })()}
