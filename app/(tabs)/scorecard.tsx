@@ -137,10 +137,16 @@ export default function ScorecardScreen() {
       Alert.alert(
         'Round Complete! 🎉',
         `Final score: ${finalScore} (${diff >= 0 ? '+' : ''}${diff})`,
-        [{
-          text: 'Save & Finish',
-          onPress: () => { finalizeRound(rid); router.push('/(tabs)'); },
-        }]
+        [
+          {
+            text: 'Start New Round',
+            onPress: () => { finalizeRound(rid); router.push({ pathname: '/(tabs)', params: { openNew: '1' } }); },
+          },
+          {
+            text: 'Done',
+            onPress: () => { finalizeRound(rid); router.push('/(tabs)'); },
+          },
+        ]
       );
     }
   }

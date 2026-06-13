@@ -8,7 +8,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { createRound, getRounds } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -16,6 +16,7 @@ import { searchCourses, PresetCourse, Tee } from '../../lib/courses';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { openNew } = useLocalSearchParams<{ openNew?: string }>();
   const [modalVisible, setModalVisible] = useState(false);
   const [courseName, setCourseName] = useState('');
   const [holes, setHoles] = useState<'9' | '18'>('18');
@@ -37,7 +38,8 @@ export default function HomeScreen() {
     useCallback(() => {
       const rounds = getRounds().filter((r) => r.totalScore > 0);
       setHasRounds(rounds.length > 0);
-    }, [])
+      if (openNew === '1') setModalVisible(true);
+    }, [openNew])
   );
 
   function handleCourseNameChange(name: string) {
