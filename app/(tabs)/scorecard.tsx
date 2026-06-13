@@ -213,7 +213,7 @@ export default function ScorecardScreen() {
           <Image
             source={HOLE_IMAGES[displayHole] ?? HOLE_IMAGES[1]}
             style={styles.holeImage}
-            resizeMode="contain"
+            resizeMode="cover"
           />
 
           <View style={styles.cardContent}>
@@ -375,8 +375,7 @@ const styles = StyleSheet.create({
   parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
   holeImage: {
     width: '100%',
-    height: 140,
-    backgroundColor: '#fff',
+    height: 150,
   },
   holeStatsRow: {
     flexDirection: 'row',
