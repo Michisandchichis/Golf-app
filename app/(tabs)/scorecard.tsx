@@ -354,10 +354,10 @@ export default function ScorecardScreen() {
               const diff = h.score - h.par;
               const isActiveRow = h.holeNumber === displayHole;
               const puttColor = h.putts <= 1 ? GREEN : h.putts === 2 ? '#bbb' : '#e07000';
-              const fwIcon = h.fairwayHit ? '✓' : h.fairwayMiss === 'left' ? '←' : h.fairwayMiss === 'right' ? '→' : '·';
-              const fwColor = h.fairwayHit ? GREEN : h.fairwayMiss ? '#e07000' : '#bbb';
-              const girIcon = h.greenInRegulation ? '✓' : h.girMiss === 'long' ? '↑' : h.girMiss === 'short' ? '↓' : h.girMiss === 'left' ? '←' : h.girMiss === 'right' ? '→' : '·';
-              const girColor = h.greenInRegulation ? GREEN : h.girMiss ? '#e07000' : '#bbb';
+              const fwIcon = h.fairwayHit ? '✓' : '·';
+              const fwColor = h.fairwayHit ? GREEN : '#bbb';
+              const girIcon = h.greenInRegulation ? '✓' : '·';
+              const girColor = h.greenInRegulation ? GREEN : '#bbb';
               return (
                 <TouchableOpacity
                   key={h.holeNumber}
