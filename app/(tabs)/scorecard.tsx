@@ -7,7 +7,20 @@ import {
   ScrollView,
   Alert,
   SafeAreaView,
+  Image,
 } from 'react-native';
+
+const HOLE_IMAGES: Record<number, ReturnType<typeof require>> = {
+  1: require('../../assets/holes/hole1.png'),
+  2: require('../../assets/holes/hole2.png'),
+  3: require('../../assets/holes/hole3.png'),
+  4: require('../../assets/holes/hole4.png'),
+  5: require('../../assets/holes/hole5.png'),
+  6: require('../../assets/holes/hole6.png'),
+  7: require('../../assets/holes/hole7.png'),
+  8: require('../../assets/holes/hole8.png'),
+  9: require('../../assets/holes/hole9.png'),
+};
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
@@ -197,19 +210,11 @@ export default function ScorecardScreen() {
         {/* Hole entry / edit card */}
         <View style={styles.card}>
           <View style={styles.holeHeader}>
-            {/* Cursive "Hole X" on the left */}
-            <Text style={styles.holeCursiveLabel}>Hole {displayHole}</Text>
-
-            {/* Flag + putting green scene on the right */}
-            <View style={styles.greenScene}>
-              <View style={styles.puttingGreen} />
-              <View style={styles.flagPole} />
-              <View style={styles.flagRect}>
-                <Text style={styles.flagNum}>{displayHole}</Text>
-              </View>
-              <View style={styles.holeCup} />
-            </View>
-
+            <Image
+              source={HOLE_IMAGES[displayHole] ?? HOLE_IMAGES[1]}
+              style={styles.holeImage}
+              resizeMode="contain"
+            />
             {isSavedHole && (
               <View style={styles.editBadge}>
                 <Text style={styles.editBadgeText}>Editing</Text>
@@ -364,67 +369,12 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
   parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
   holeHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 8,
   },
-  holeCursiveLabel: {
-    fontSize: 40,
-    fontStyle: 'italic',
-    fontFamily: 'Georgia, serif',
-    color: '#1a1a1a',
-    flex: 1,
-  },
-  greenScene: {
-    width: 110,
-    height: 76,
-    position: 'relative',
-  },
-  puttingGreen: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 46,
-    backgroundColor: '#4a9940',
-    borderTopLeftRadius: 55,
-    borderTopRightRadius: 40,
-    borderBottomLeftRadius: 22,
-    borderBottomRightRadius: 28,
-  },
-  flagPole: {
-    position: 'absolute',
-    bottom: 22,
-    left: 44,
-    width: 2,
-    height: 52,
-    backgroundColor: '#888',
-  },
-  flagRect: {
-    position: 'absolute',
-    top: 2,
-    left: 46,
-    width: 28,
-    height: 21,
-    backgroundColor: '#e63946',
-    borderRadius: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flagNum: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  holeCup: {
-    position: 'absolute',
-    bottom: 18,
-    left: 42,
-    width: 7,
-    height: 5,
-    backgroundColor: '#2a3a1a',
-    borderRadius: 4,
+  holeImage: {
+    width: '100%',
+    height: 160,
   },
   holeStatsRow: {
     flexDirection: 'row',
