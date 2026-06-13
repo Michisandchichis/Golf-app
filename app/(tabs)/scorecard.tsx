@@ -5,8 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
@@ -42,6 +42,7 @@ export default function ScorecardScreen() {
   const [gir, setGir] = useState(false);
   const [girMiss, setGirMiss] = useState<'long' | 'short' | 'left' | 'right' | null>(null);
   const [penalties, setPenalties] = useState(0);
+  const [roundComplete, setRoundComplete] = useState<{ score: number; diff: number } | null>(null);
 
   function loadHoleIntoForm(holeNum: number, holes: Hole[]) {
     const saved = holes.find((h) => h.holeNumber === holeNum);
@@ -134,20 +135,8 @@ export default function ScorecardScreen() {
       const finalScore = updated.reduce((s, h) => s + h.score, 0);
       const finalPar = updated.reduce((s, h) => s + h.par, 0);
       const diff = finalScore - finalPar;
-      Alert.alert(
-        'Round Complete! 🎉',
-        `Final score: ${finalScore} (${diff >= 0 ? '+' : ''}${diff})`,
-        [
-          {
-            text: 'Start New Round',
-            onPress: () => { finalizeRound(rid); router.push({ pathname: '/(tabs)', params: { openNew: '1' } }); },
-          },
-          {
-            text: 'Done',
-            onPress: () => { finalizeRound(rid); router.push('/(tabs)'); },
-          },
-        ]
-      );
+      finalizeRound(rid);
+      setRoundComplete({ score: finalScore, diff });
     }
   }
 
@@ -423,6 +412,33 @@ export default function ScorecardScreen() {
           </View>
         )}
       </ScrollView>
+      {/* Round complete overlay */}
+      <Modal visible={!!roundComplete} transparent animationType="fade">
+        <View style={styles.completeOverlay}>
+          <View style={styles.completeCard}>
+            <Text style={styles.completeTrophy}>🏆</Text>
+            <Text style={styles.completeTitle}>Round Complete!</Text>
+            {roundComplete && (
+              <Text style={styles.completeScore}>
+                {roundComplete.score}  (
+                {roundComplete.diff >= 0 ? '+' : ''}{roundComplete.diff})
+              </Text>
+            )}
+            <TouchableOpacity
+              style={styles.completeBtn}
+              onPress={() => { setRoundComplete(null); router.push({ pathname: '/(tabs)', params: { openNew: '1' } }); }}
+            >
+              <Text style={styles.completeBtnText}>Start New Round</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.completeBtnOutline}
+              onPress={() => { setRoundComplete(null); router.push('/(tabs)'); }}
+            >
+              <Text style={styles.completeBtnOutlineText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -641,6 +657,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10, borderTopWidth: 1, borderColor: '#eee', marginTop: 4,
   },
   tableFooterText: { fontSize: 13, fontWeight: '600', color: GREEN },
+  completeOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 32,
+  },
+  completeCard: {
+    backgroundColor: '#fff', borderRadius: 20, padding: 32, width: '100%', alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 16, elevation: 10,
+  },
+  completeTrophy: { fontSize: 56, marginBottom: 8 },
+  completeTitle: { fontSize: 24, fontWeight: 'bold', color: '#222', marginBottom: 4 },
+  completeScore: { fontSize: 36, fontWeight: 'bold', color: GREEN, marginBottom: 28 },
+  completeBtn: {
+    backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center', width: '100%', marginBottom: 10,
+  },
+  completeBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  completeBtnOutline: {
+    borderWidth: 1.5, borderColor: '#ccc', borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center', width: '100%',
+  },
+  completeBtnOutlineText: { color: '#888', fontSize: 16, fontWeight: '600' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 12 },
