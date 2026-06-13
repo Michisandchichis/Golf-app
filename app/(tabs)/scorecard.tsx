@@ -175,14 +175,11 @@ export default function ScorecardScreen() {
         <TouchableOpacity style={styles.homeBtn} onPress={() => router.push('/(tabs)')}>
           <Text style={styles.homeBtnText}>⌂ Home</Text>
         </TouchableOpacity>
-        <View style={styles.topBarCenter}>
-          {courseName ? <Text style={styles.topBarCourse}>{courseName}</Text> : null}
-          <Text style={styles.totalScore}>
-            {savedHoles.length > 0
-              ? `${totalScore}  (${runningToPar >= 0 ? '+' : ''}${runningToPar})`
-              : 'Score: —'}
-          </Text>
-        </View>
+        <Text style={styles.totalScore}>
+          {savedHoles.length > 0
+            ? `${totalScore}  (${runningToPar >= 0 ? '+' : ''}${runningToPar})`
+            : 'Score: —'}
+        </Text>
       </View>
 
       {/* Hole selector */}
@@ -219,8 +216,12 @@ export default function ScorecardScreen() {
         <View style={styles.card}>
           {/* Code-drawn hole header */}
           <View style={styles.holeHeader}>
-            <Text style={styles.holeCursive}>Hole {displayHole}</Text>
+            <View style={{ flex: 1 }}>
+              {courseName ? <Text style={styles.courseNameLabel}>{courseName}</Text> : null}
+              <Text style={styles.holeCursive}>Hole {displayHole}</Text>
+            </View>
             <View style={styles.greenScene}>
+
               <View style={styles.greenBlob} />
               <View style={styles.greenDark} />
               <View style={[styles.golfBall, { bottom: 20, left: 18 }]} />
@@ -476,8 +477,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   homeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  topBarCenter: { flex: 1, alignItems: 'flex-end' },
-  topBarCourse: { color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '500', marginBottom: 1 },
   totalScore: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   holeSelectorWrap: {
     backgroundColor: '#fff',
@@ -529,12 +528,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0ede0',
   },
+  courseNameLabel: {
+    fontSize: 12, color: '#5a8a5a', fontWeight: '600',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
+  },
   holeCursive: {
     fontSize: 42,
     fontStyle: 'italic',
     fontFamily: 'Georgia, serif',
     color: '#1b3a1b',
-    flex: 1,
   },
   greenScene: {
     width: 140,
