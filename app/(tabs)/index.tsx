@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getRounds } from '../../lib/db';
+import { getRounds, getCloudReady } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useEffect } from 'react';
@@ -23,8 +23,10 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const rounds = getRounds().filter((r) => r.totalScore > 0);
-      setHasRounds(rounds.length > 0);
+      getCloudReady().then(() => {
+        const rounds = getRounds().filter((r) => r.totalScore > 0);
+        setHasRounds(rounds.length > 0);
+      });
     }, [])
   );
 

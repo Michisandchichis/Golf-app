@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
-import { initDb } from '../lib/db';
+import { initDb, loadFromCloud } from '../lib/db';
 import { supabase } from '../lib/supabase';
 
 export default function RootLayout() {
@@ -15,10 +15,12 @@ export default function RootLayout() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user) loadFromCloud(session.user.id);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user) loadFromCloud(session.user.id);
     });
 
     return () => subscription.unsubscribe();

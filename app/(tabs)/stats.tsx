@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Ale
 import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRounds, getHoles, deleteRound, Round, Hole } from '../../lib/db';
+import { getRounds, getHoles, deleteRound, Round, Hole, getCloudReady } from '../../lib/db';
 
 const GREEN = '#2d6a2d';
 const RED = '#c62828';
@@ -110,12 +110,17 @@ export default function StatsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      const all = getRounds().filter((r) => r.totalScore > 0);
-      setHandicap(calcHandicap(all));
-      setHcapHistory(calcHandicapHistory(all));
-      const holesPerRound = all.map((r) => getHoles(r.id!));
-      setAllHoles(holesPerRound.flat());
-      setRounds(all.map((r, i) => calcRoundStats(r, holesPerRound[i])));
+      let active = true;
+      getCloudReady().then(() => {
+        if (!active) return;
+        const all = getRounds().filter((r) => r.totalScore > 0);
+        setHandicap(calcHandicap(all));
+        setHcapHistory(calcHandicapHistory(all));
+        const holesPerRound = all.map((r) => getHoles(r.id!));
+        setAllHoles(holesPerRound.flat());
+        setRounds(all.map((r, i) => calcRoundStats(r, holesPerRound[i])));
+      });
+      return () => { active = false; };
     }, [])
   );
 

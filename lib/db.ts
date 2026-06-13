@@ -152,3 +152,7 @@ export function deleteRound(roundId: number) {
   db.runSync('DELETE FROM holes WHERE roundId = ?', [roundId]);
   db.runSync('DELETE FROM rounds WHERE id = ?', [roundId]);
 }
+
+// No-op stubs — native uses SQLite directly, cloud sync not needed here
+export async function loadFromCloud(_userId: string): Promise<void> {}
+export function getCloudReady(): Promise<void> { return Promise.resolve(); }
