@@ -1,11 +1,21 @@
-import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { useCallback, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRounds, getHoles, deleteRound, Round, Hole } from '../../lib/db';
 
 const GREEN = '#2d6a2d';
 const RED = '#c62828';
+
+type Goals = { fairways: number; gir: number; scrambling: number; threePutt: number; penalties: number };
+const GOALS_KEY = '@golf_goals';
+const DEFAULT_GOALS: Goals = { fairways: 60, gir: 40, scrambling: 50, threePutt: 20, penalties: 2 };
+
+function fmtDiff(d: number) {
+  if (Math.abs(d) < 0.005) return 'E';
+  return d > 0 ? `+${d.toFixed(2)}` : d.toFixed(2);
+}
 
 type RoundStats = Round & {
   fairwayPct: number;
@@ -84,6 +94,19 @@ export default function StatsScreen() {
   const [allHoles, setAllHoles] = useState<Hole[]>([]);
   const [handicap, setHandicap] = useState<string | null>(null);
   const [hcapHistory, setHcapHistory] = useState<{ date: string; value: number }[]>([]);
+  const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
+
+  useEffect(() => {
+    AsyncStorage.getItem(GOALS_KEY).then(val => {
+      if (val) try { setGoals(JSON.parse(val)); } catch {}
+    });
+  }, []);
+
+  function updateGoal(key: keyof Goals, value: number) {
+    const next = { ...goals, [key]: value };
+    setGoals(next);
+    AsyncStorage.setItem(GOALS_KEY, JSON.stringify(next));
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -167,6 +190,24 @@ export default function StatsScreen() {
   const fwRight = fwMisses.filter((h) => h.fairwayMiss === 'right').length;
   const fPct = (v: number) => fwMissTotal > 0 ? `${Math.round((v / fwMissTotal) * 100)}%` : '0%';
 
+  // Trend data for mini charts (oldest first)
+  const chronoRounds = [...rounds].reverse();
+  const scoreTrend = chronoRounds.filter(r => r.totalPar > 0).map(r => ({ date: r.date, value: r.totalScore - r.totalPar }));
+  const girTrend = chronoRounds.map(r => ({ date: r.date, value: r.girPct }));
+  const fwTrend = chronoRounds.map(r => ({ date: r.date, value: r.fairwayPct }));
+  const puttsTrend = chronoRounds.map(r => ({ date: r.date, value: r.avgPutts }));
+
+  // Best/worst hole across all rounds (need ≥2 rounds on the same hole)
+  const holeStats = Array.from({ length: 18 }, (_, i) => i + 1).map(num => {
+    const hs = allHoles.filter(h => h.holeNumber === num);
+    if (hs.length < 2) return null;
+    const avg = hs.reduce((s, h) => s + (h.score - h.par), 0) / hs.length;
+    return { num, avg, count: hs.length };
+  }).filter(Boolean) as { num: number; avg: number; count: number }[];
+
+  const bestHole = holeStats.length > 0 ? holeStats.reduce((b, h) => h.avg < b.avg ? h : b) : null;
+  const worstHole = holeStats.length > 0 ? holeStats.reduce((w, h) => h.avg > w.avg ? h : w) : null;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -200,6 +241,43 @@ export default function StatsScreen() {
                     Log 1 more rated round to see your handicap trend
                   </Text>
                 )}
+              </View>
+            )}
+
+            {/* Performance trends 2x2 grid */}
+            {n >= 2 && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Performance Trends</Text>
+                <View style={styles.miniChartGrid}>
+                  <View style={styles.miniChartCell}>
+                    <Text style={styles.miniChartTitle}>Score vs Par</Text>
+                    <Text style={styles.miniChartLatest}>
+                      {scoreTrend.length > 0 ? fmtDiff(scoreTrend[scoreTrend.length-1].value) : '—'}
+                    </Text>
+                    <MiniLineGraph data={scoreTrend} lowerBetter />
+                  </View>
+                  <View style={styles.miniChartCell}>
+                    <Text style={styles.miniChartTitle}>GIR %</Text>
+                    <Text style={styles.miniChartLatest}>
+                      {girTrend.length > 0 ? `${Math.round(girTrend[girTrend.length-1].value)}%` : '—'}
+                    </Text>
+                    <MiniLineGraph data={girTrend} />
+                  </View>
+                  <View style={styles.miniChartCell}>
+                    <Text style={styles.miniChartTitle}>Fairways %</Text>
+                    <Text style={styles.miniChartLatest}>
+                      {fwTrend.length > 0 ? `${Math.round(fwTrend[fwTrend.length-1].value)}%` : '—'}
+                    </Text>
+                    <MiniLineGraph data={fwTrend} />
+                  </View>
+                  <View style={styles.miniChartCell}>
+                    <Text style={styles.miniChartTitle}>Putts / Hole</Text>
+                    <Text style={styles.miniChartLatest}>
+                      {puttsTrend.length > 0 ? puttsTrend[puttsTrend.length-1].value.toFixed(1) : '—'}
+                    </Text>
+                    <MiniLineGraph data={puttsTrend} lowerBetter />
+                  </View>
+                </View>
               </View>
             )}
 
@@ -278,6 +356,17 @@ export default function StatsScreen() {
               )}
             </View>
 
+            {/* Goals */}
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Goals</Text>
+              <Text style={styles.goalHint}>Tap any target to edit it</Text>
+              <GoalRow label="Fairways" current={avgFw} goal={goals.fairways} unit="%" onSetGoal={v => updateGoal('fairways', v)} />
+              <GoalRow label="GIR" current={avgGir} goal={goals.gir} unit="%" onSetGoal={v => updateGoal('gir', v)} />
+              <GoalRow label="Scrambling" current={avgScrambling} goal={goals.scrambling} unit="%" onSetGoal={v => updateGoal('scrambling', v)} />
+              <GoalRow label="3-Putt %" current={avgThreePuttPct} goal={goals.threePutt} unit="%" lowerBetter onSetGoal={v => updateGoal('threePutt', v)} />
+              <GoalRow label="Pen/Round" current={avgPenalties !== null ? parseFloat(avgPenalties) : null} goal={goals.penalties} unit="" lowerBetter onSetGoal={v => updateGoal('penalties', v)} />
+            </View>
+
             {/* Scoring by par type */}
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Scoring by Par</Text>
@@ -295,6 +384,33 @@ export default function StatsScreen() {
                 })}
               </View>
             </View>
+
+            {/* Best / Worst Hole */}
+            {holeStats.length >= 2 && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Hole Breakdown</Text>
+                <View style={styles.bestWorstRow}>
+                  {bestHole && (
+                    <View style={[styles.bestWorstCard, { borderColor: GREEN }]}>
+                      <Text style={styles.bestWorstEmoji}>🏆</Text>
+                      <Text style={styles.bestWorstLabel}>Best Hole</Text>
+                      <Text style={styles.bestWorstHole}>#{bestHole.num}</Text>
+                      <Text style={[styles.bestWorstAvg, { color: GREEN }]}>{fmtDiff(bestHole.avg)}</Text>
+                      <Text style={styles.bestWorstCount}>{bestHole.count} rounds</Text>
+                    </View>
+                  )}
+                  {worstHole && worstHole.num !== bestHole?.num && (
+                    <View style={[styles.bestWorstCard, { borderColor: '#eee' }]}>
+                      <Text style={styles.bestWorstEmoji}>⚠️</Text>
+                      <Text style={styles.bestWorstLabel}>Hardest Hole</Text>
+                      <Text style={styles.bestWorstHole}>#{worstHole.num}</Text>
+                      <Text style={[styles.bestWorstAvg, { color: RED }]}>{fmtDiff(worstHole.avg)}</Text>
+                      <Text style={styles.bestWorstCount}>{worstHole.count} rounds</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
 
             {/* Miss tendencies */}
             <View style={styles.card}>
@@ -388,6 +504,61 @@ export default function StatsScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function MiniLineGraph({ data, lowerBetter = false }: {
+  data: { date: string; value: number }[];
+  lowerBetter?: boolean;
+}) {
+  const [w, setW] = useState(0);
+  const height = 70;
+  const values = data.map(d => d.value);
+  const canDraw = w > 0 && values.length >= 2;
+
+  if (!canDraw) {
+    return <View style={{ height }} onLayout={(e: any) => setW(e.nativeEvent.layout.width)} />;
+  }
+
+  const first = values[0];
+  const latest = values[values.length - 1];
+  const diff = latest - first;
+  const improving = lowerBetter ? diff <= 0 : diff >= 0;
+  const lineColor = Math.abs(diff) > 0.01 ? (improving ? GREEN : RED) : '#aaa';
+
+  const pad = { t: 6, b: 14, l: 4, r: 4 };
+  const cw = w - pad.l - pad.r;
+  const ch = height - pad.t - pad.b;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const yPad = (max - min) * 0.25 || 1;
+  const yMax = max + yPad;
+  const yRange = yMax - (min - yPad);
+  const pts = values.map((v, i) => ({
+    x: pad.l + (i / (values.length - 1)) * cw,
+    y: pad.t + ((yMax - v) / yRange) * ch,
+  }));
+  const lp = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const fp = `${lp} L${pts[pts.length-1].x.toFixed(1)},${(pad.t+ch).toFixed(1)} L${pts[0].x.toFixed(1)},${(pad.t+ch).toFixed(1)} Z`;
+
+  return (
+    <View onLayout={(e: any) => setW(e.nativeEvent.layout.width)}>
+      <Svg width={w} height={height}>
+        <Line x1={pad.l} y1={pad.t+ch} x2={pad.l+cw} y2={pad.t+ch} stroke="#f0f0f0" strokeWidth={1} />
+        <Path d={fp} fill={lineColor} fillOpacity={0.08} />
+        <Path d={lp} stroke={lineColor} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => (
+          <Circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 2.5}
+            fill={i === pts.length - 1 ? lineColor : '#fff'} stroke={lineColor} strokeWidth={1.5} />
+        ))}
+        <SvgText x={pts[0].x} y={height-2} textAnchor="start" fontSize={8} fill="#ccc">{fmtDate(data[0].date)}</SvgText>
+        {data[0].date !== data[data.length-1].date && (
+          <SvgText x={pts[pts.length-1].x} y={height-2} textAnchor="end" fontSize={8} fill="#ccc">
+            {fmtDate(data[data.length-1].date)}
+          </SvgText>
+        )}
+      </Svg>
+    </View>
   );
 }
 
@@ -486,6 +657,46 @@ function HandicapLineGraph({ data }: { data: { date: string; value: number }[] }
   );
 }
 
+function GoalRow({ label, current, goal, unit, lowerBetter = false, onSetGoal }: {
+  label: string; current: number | null; goal: number;
+  unit: string; lowerBetter?: boolean; onSetGoal: (v: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const met = current !== null && (lowerBetter ? current <= goal : current >= goal);
+  const pct = current === null ? 0
+    : lowerBetter ? Math.min(current > 0 ? goal / current : 1, 1)
+    : Math.min(current / goal, 1);
+
+  function commit() {
+    const v = parseFloat(draft);
+    if (!isNaN(v) && v > 0) onSetGoal(v);
+    setEditing(false);
+  }
+  const display = current !== null
+    ? (Number.isInteger(current) ? `${current}${unit}` : `${current.toFixed(1)}${unit}`)
+    : '—';
+
+  return (
+    <View style={styles.goalRow}>
+      <Text style={styles.goalLabel}>{label}</Text>
+      <View style={styles.goalBarBg}>
+        <View style={[styles.goalBarFill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: met ? GREEN : '#6ab26a' }]} />
+      </View>
+      <Text style={[styles.goalCurrent, met ? { color: GREEN, fontWeight: '700' } : {}]}>{display}</Text>
+      <Text style={styles.goalSep}>/</Text>
+      {editing ? (
+        <TextInput style={styles.goalInput} value={draft} onChangeText={setDraft}
+          onBlur={commit} onSubmitEditing={commit} keyboardType="decimal-pad" autoFocus />
+      ) : (
+        <TouchableOpacity onPress={() => { setDraft(String(goal)); setEditing(true); }}>
+          <Text style={styles.goalTarget}>{goal}{unit} ✎</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 function StatPill({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <View style={styles.pill}>
@@ -568,4 +779,27 @@ const styles = StyleSheet.create({
   pill: { flex: 1, backgroundColor: '#f0f6f0', borderRadius: 8, padding: 8, alignItems: 'center' },
   pillValue: { fontSize: 15, fontWeight: 'bold', color: GREEN },
   pillLabel: { fontSize: 10, color: '#666', marginTop: 2 },
+  // Performance trends grid
+  miniChartGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  miniChartCell: { width: '47%' as any },
+  miniChartTitle: { fontSize: 11, fontWeight: '600', color: '#777', marginBottom: 2 },
+  miniChartLatest: { fontSize: 18, fontWeight: 'bold', color: GREEN, marginBottom: 2 },
+  // Goals
+  goalHint: { fontSize: 11, color: '#bbb', marginBottom: 12 },
+  goalRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  goalLabel: { width: 78, fontSize: 13, color: '#444', fontWeight: '500' },
+  goalBarBg: { flex: 1, height: 8, backgroundColor: '#f0f0f0', borderRadius: 4, overflow: 'hidden' },
+  goalBarFill: { height: 8, borderRadius: 4 },
+  goalCurrent: { fontSize: 12, color: '#666', width: 36, textAlign: 'right' as const },
+  goalSep: { fontSize: 12, color: '#ddd' },
+  goalTarget: { fontSize: 12, color: '#888', width: 50 },
+  goalInput: { fontSize: 12, color: '#333', width: 50, borderBottomWidth: 1, borderBottomColor: '#aaa', padding: 0 },
+  // Best/worst hole
+  bestWorstRow: { flexDirection: 'row', gap: 12 },
+  bestWorstCard: { flex: 1, borderWidth: 1.5, borderRadius: 10, padding: 14, alignItems: 'center' as const },
+  bestWorstEmoji: { fontSize: 20, marginBottom: 4 },
+  bestWorstLabel: { fontSize: 11, color: '#888', fontWeight: '600' as const },
+  bestWorstHole: { fontSize: 28, fontWeight: 'bold' as const, color: '#333', marginTop: 2 },
+  bestWorstAvg: { fontSize: 20, fontWeight: 'bold' as const, marginTop: 2 },
+  bestWorstCount: { fontSize: 11, color: '#bbb', marginTop: 4 },
 });
