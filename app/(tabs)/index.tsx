@@ -38,9 +38,12 @@ export default function HomeScreen() {
     useCallback(() => {
       const rounds = getRounds().filter((r) => r.totalScore > 0);
       setHasRounds(rounds.length > 0);
-      if (openNew === '1') setModalVisible(true);
-    }, [openNew])
+    }, [])
   );
+
+  useEffect(() => {
+    if (openNew === '1') setModalVisible(true);
+  }, [openNew]);
 
   function handleCourseNameChange(name: string) {
     setCourseName(name);
