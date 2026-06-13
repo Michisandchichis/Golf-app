@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { getRounds, getHoles, deleteRound, Round, Hole } from '../../lib/db';
 
 const GREEN = '#2d6a2d';
@@ -53,6 +54,17 @@ function calcHandicap(rounds: Round[]): string | null {
   return Math.min((best.reduce((s, d) => s + d, 0) / best.length) * 0.96, 54).toFixed(1);
 }
 
+function calcHandicapHistory(rounds: Round[]): { date: string; value: number }[] {
+  const chrono = [...rounds].reverse(); // oldest first
+  const result: { date: string; value: number }[] = [];
+  for (let i = 0; i < chrono.length; i++) {
+    const subset = chrono.slice(0, i + 1).reverse(); // newest-first for calcHandicap
+    const h = calcHandicap(subset);
+    if (h !== null) result.push({ date: chrono[i].date, value: parseFloat(h) });
+  }
+  return result;
+}
+
 function trend(recent: number | null, overall: number | null, higherBetter: boolean) {
   if (recent === null || overall === null) return { arrow: '', color: '#888' };
   const diff = recent - overall;
@@ -65,11 +77,13 @@ export default function StatsScreen() {
   const [rounds, setRounds] = useState<RoundStats[]>([]);
   const [allHoles, setAllHoles] = useState<Hole[]>([]);
   const [handicap, setHandicap] = useState<string | null>(null);
+  const [hcapHistory, setHcapHistory] = useState<{ date: string; value: number }[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       const all = getRounds().filter((r) => r.totalScore > 0);
       setHandicap(calcHandicap(all));
+      setHcapHistory(calcHandicapHistory(all));
       const holesPerRound = all.map((r) => getHoles(r.id!));
       setAllHoles(holesPerRound.flat());
       setRounds(all.map((r, i) => calcRoundStats(r, holesPerRound[i])));
@@ -168,6 +182,14 @@ export default function StatsScreen() {
               </View>
               <Text style={styles.handicapValue}>{handicap ?? '—'}</Text>
             </View>
+
+            {/* Handicap trend chart */}
+            {hcapHistory.length >= 3 && (
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Handicap Trend</Text>
+                <HandicapLineGraph data={hcapHistory} />
+              </View>
+            )}
 
             {/* Summary row */}
             <View style={styles.summaryRow}>
@@ -354,6 +376,94 @@ export default function StatsScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function HandicapLineGraph({ data }: { data: { date: string; value: number }[] }) {
+  const [width, setWidth] = useState(0);
+  const values = data.map((d) => d.value);
+
+  if (width === 0) {
+    return <View style={{ height: 110 }} onLayout={(e: any) => setWidth(e.nativeEvent.layout.width)} />;
+  }
+
+  const height = 110;
+  const pad = { t: 14, b: 18, l: 34, r: 12 };
+  const cw = width - pad.l - pad.r;
+  const ch = height - pad.t - pad.b;
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const yPad = (max - min) * 0.25 || 1;
+  const yMax = max + yPad;
+  const yRange = yMax - (min - yPad);
+
+  const pts = values.map((v, i) => ({
+    x: pad.l + (i / Math.max(values.length - 1, 1)) * cw,
+    y: pad.t + ((yMax - v) / yRange) * ch,
+  }));
+
+  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const fillPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${(pad.t + ch).toFixed(1)} L${pts[0].x.toFixed(1)},${(pad.t + ch).toFixed(1)} Z`;
+
+  const latest = values[values.length - 1];
+  const first = values[0];
+  const latestPt = pts[pts.length - 1];
+  const firstPt = pts[0];
+  const improving = latest < first;
+
+  const lineColor = improving ? GREEN : '#c62828';
+
+  return (
+    <View onLayout={(e: any) => setWidth(e.nativeEvent.layout.width)}>
+      <Svg width={width} height={height}>
+        {/* Baseline */}
+        <Line x1={pad.l} y1={pad.t + ch} x2={pad.l + cw} y2={pad.t + ch} stroke="#eee" strokeWidth={1} />
+        {/* Fill under line */}
+        <Path d={fillPath} fill={lineColor} fillOpacity={0.08} />
+        {/* Line */}
+        <Path d={linePath} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Dots */}
+        {pts.map((p, i) => {
+          const isLast = i === pts.length - 1;
+          return (
+            <Circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={isLast ? 5 : 3}
+              fill={isLast ? lineColor : '#fff'}
+              stroke={lineColor}
+              strokeWidth={1.5}
+            />
+          );
+        })}
+        {/* Latest label */}
+        <SvgText x={pad.l - 4} y={latestPt.y + 4} textAnchor="end" fontSize={11} fill={lineColor} fontWeight="700">
+          {latest.toFixed(1)}
+        </SvgText>
+        {/* First label — only if far enough away to not overlap */}
+        {Math.abs(first - latest) > 0.4 && (
+          <SvgText x={pad.l - 4} y={firstPt.y + 4} textAnchor="end" fontSize={10} fill="#bbb">
+            {first.toFixed(1)}
+          </SvgText>
+        )}
+        {/* Date labels: first and last */}
+        <SvgText x={pts[0].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
+          {data[0].date.slice(5)}
+        </SvgText>
+        <SvgText x={pts[pts.length - 1].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
+          {data[data.length - 1].date.slice(5)}
+        </SvgText>
+      </Svg>
+      <Text style={styles.trendNote}>
+        {improving
+          ? `↓ Improving — down ${(first - latest).toFixed(1)} from first tracked round`
+          : latest === first
+          ? 'Holding steady'
+          : `↑ Up ${(latest - first).toFixed(1)} from first tracked round`}
+      </Text>
+    </View>
   );
 }
 
