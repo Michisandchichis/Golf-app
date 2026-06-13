@@ -192,10 +192,10 @@ export default function StatsScreen() {
 
   // Trend data for mini charts (oldest first)
   const chronoRounds = [...rounds].reverse();
-  const scoreTrend = chronoRounds.filter(r => r.totalPar > 0).map(r => ({ date: r.date, value: r.totalScore - r.totalPar }));
-  const girTrend = chronoRounds.map(r => ({ date: r.date, value: r.girPct }));
-  const fwTrend = chronoRounds.map(r => ({ date: r.date, value: r.fairwayPct }));
-  const puttsTrend = chronoRounds.map(r => ({ date: r.date, value: r.avgPutts }));
+  const scoreChart = chronoRounds.filter(r => r.totalPar > 0).map(r => ({ date: r.date, value: r.totalScore - r.totalPar }));
+  const girChart = chronoRounds.map(r => ({ date: r.date, value: r.girPct }));
+  const fwChart = chronoRounds.map(r => ({ date: r.date, value: r.fairwayPct }));
+  const puttsChart = chronoRounds.map(r => ({ date: r.date, value: r.avgPutts }));
 
   // Best/worst hole across all rounds (need ≥2 rounds on the same hole)
   const holeStats = Array.from({ length: 18 }, (_, i) => i + 1).map(num => {
@@ -252,30 +252,30 @@ export default function StatsScreen() {
                   <View style={styles.miniChartCell}>
                     <Text style={styles.miniChartTitle}>Score vs Par</Text>
                     <Text style={styles.miniChartLatest}>
-                      {scoreTrend.length > 0 ? fmtDiff(scoreTrend[scoreTrend.length-1].value) : '—'}
+                      {scoreChart.length > 0 ? fmtDiff(scoreChart[scoreChart.length-1].value) : '—'}
                     </Text>
-                    <MiniLineGraph data={scoreTrend} lowerBetter />
+                    <MiniLineGraph data={scoreChart} lowerBetter />
                   </View>
                   <View style={styles.miniChartCell}>
                     <Text style={styles.miniChartTitle}>GIR %</Text>
                     <Text style={styles.miniChartLatest}>
-                      {girTrend.length > 0 ? `${Math.round(girTrend[girTrend.length-1].value)}%` : '—'}
+                      {girChart.length > 0 ? `${Math.round(girChart[girChart.length-1].value)}%` : '—'}
                     </Text>
-                    <MiniLineGraph data={girTrend} />
+                    <MiniLineGraph data={girChart} />
                   </View>
                   <View style={styles.miniChartCell}>
                     <Text style={styles.miniChartTitle}>Fairways %</Text>
                     <Text style={styles.miniChartLatest}>
-                      {fwTrend.length > 0 ? `${Math.round(fwTrend[fwTrend.length-1].value)}%` : '—'}
+                      {fwChart.length > 0 ? `${Math.round(fwChart[fwChart.length-1].value)}%` : '—'}
                     </Text>
-                    <MiniLineGraph data={fwTrend} />
+                    <MiniLineGraph data={fwChart} />
                   </View>
                   <View style={styles.miniChartCell}>
                     <Text style={styles.miniChartTitle}>Putts / Hole</Text>
                     <Text style={styles.miniChartLatest}>
-                      {puttsTrend.length > 0 ? puttsTrend[puttsTrend.length-1].value.toFixed(1) : '—'}
+                      {puttsChart.length > 0 ? puttsChart[puttsChart.length-1].value.toFixed(1) : '—'}
                     </Text>
-                    <MiniLineGraph data={puttsTrend} lowerBetter />
+                    <MiniLineGraph data={puttsChart} lowerBetter />
                   </View>
                 </View>
               </View>
