@@ -54,6 +54,12 @@ function calcHandicap(rounds: Round[]): string | null {
   return Math.min((best.reduce((s, d) => s + d, 0) / best.length) * 0.96, 54).toFixed(1);
 }
 
+function fmtDate(iso: string) {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const parts = iso.split('-');
+  return `${months[parseInt(parts[1]) - 1]} ${parseInt(parts[2])}`;
+}
+
 function calcHandicapHistory(rounds: Round[]): { date: string; value: number }[] {
   const chrono = [...rounds].reverse(); // oldest first
   const result: { date: string; value: number }[] = [];
@@ -456,19 +462,26 @@ function HandicapLineGraph({ data }: { data: { date: string; value: number }[] }
         )}
         {/* Date labels: first and last */}
         <SvgText x={pts[0].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
-          {data[0].date.slice(5)}
+          {fmtDate(data[0].date)}
         </SvgText>
-        <SvgText x={pts[pts.length - 1].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
-          {data[data.length - 1].date.slice(5)}
-        </SvgText>
+        {data.length > 2 && (
+          <SvgText x={pts[pts.length - 1].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
+            {fmtDate(data[data.length - 1].date)}
+          </SvgText>
+        )}
       </Svg>
-      <Text style={styles.trendNote}>
-        {improving
-          ? `↓ Improving — down ${(first - latest).toFixed(1)} from first tracked round`
-          : latest === first
-          ? 'Holding steady'
-          : `↑ Up ${(latest - first).toFixed(1)} from first tracked round`}
-      </Text>
+      <View style={styles.trendFooterRow}>
+        <Text style={styles.trendNote}>
+          {improving
+            ? `↓ Down ${(first - latest).toFixed(1)} pts — improving`
+            : latest === first
+            ? 'Holding steady'
+            : `↑ Up ${(latest - first).toFixed(1)} pts`}
+        </Text>
+        <Text style={styles.trendNote}>
+          {data.length} rated rounds · {fmtDate(data[0].date)}{data[data.length - 1].date !== data[0].date ? ` – ${fmtDate(data[data.length - 1].date)}` : ''}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -516,7 +529,8 @@ const styles = StyleSheet.create({
   bigStatLabel: { fontSize: 12, color: '#888', marginTop: 4 },
   bigStatDivider: { width: 1, height: 44, backgroundColor: '#eee' },
   bigStatDividerH: { height: 1, backgroundColor: '#eee', marginVertical: 14 },
-  trendNote: { fontSize: 11, color: '#bbb', textAlign: 'center', marginTop: 12 },
+  trendNote: { fontSize: 11, color: '#bbb', marginTop: 8 },
+  trendFooterRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 4 },
   parRow: { flexDirection: 'row', gap: 8 },
   parCard: {
     flex: 1, backgroundColor: '#f8f8f8', borderRadius: 10, padding: 12, alignItems: 'center',
