@@ -120,8 +120,14 @@ export default function ScorecardScreen() {
     const updated = getHoles(rid);
     setSavedHoles(updated);
 
-    if (isSavedHole) {
-      // Edited existing hole — return to next unplayed hole
+    if (isSavedHole && updated.length >= numHoles) {
+      // Edited a hole and all holes are complete — show round complete
+      const finalScore = updated.reduce((s, h) => s + h.score, 0);
+      const finalPar = updated.reduce((s, h) => s + h.par, 0);
+      finalizeRound(rid);
+      setRoundComplete({ score: finalScore, diff: finalScore - finalPar });
+    } else if (isSavedHole) {
+      // Edited existing hole, round not yet complete — return to next unplayed hole
       setDisplayHole(nextHole);
       loadHoleIntoForm(nextHole, updated);
     } else if (displayHole < numHoles) {
