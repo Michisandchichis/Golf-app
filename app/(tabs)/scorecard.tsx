@@ -241,14 +241,29 @@ export default function ScorecardScreen() {
               </View>
             )}
 
-            {/* Par / yards / handicap chips */}
+            {/* Par / yards / handicap stat blocks */}
             <View style={styles.holeStatsRow}>
-              <Text style={styles.holeStatChip}>Par {par}</Text>
+              <View style={styles.holeStatBlock}>
+                <Text style={styles.holeStatLabel}>Par</Text>
+                <Text style={styles.holeStatValue}>{par}</Text>
+              </View>
               {HOLE_YARDS[displayHole - 1] ? (
-                <Text style={styles.holeStatChip}>{HOLE_YARDS[displayHole - 1]} yds</Text>
+                <>
+                  <View style={styles.holeStatDivider} />
+                  <View style={styles.holeStatBlock}>
+                    <Text style={styles.holeStatLabel}>Yards</Text>
+                    <Text style={styles.holeStatValue}>{HOLE_YARDS[displayHole - 1]}</Text>
+                  </View>
+                </>
               ) : null}
               {HOLE_HANDICAPS[displayHole - 1] ? (
-                <Text style={styles.holeStatChip}>HCP {HOLE_HANDICAPS[displayHole - 1]}</Text>
+                <>
+                  <View style={styles.holeStatDivider} />
+                  <View style={styles.holeStatBlock}>
+                    <Text style={styles.holeStatLabel}>HCP</Text>
+                    <Text style={styles.holeStatValue}>{HOLE_HANDICAPS[displayHole - 1]}</Text>
+                  </View>
+                </>
               ) : null}
             </View>
 
@@ -610,18 +625,17 @@ const styles = StyleSheet.create({
   },
   holeStatsRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
     marginBottom: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
   },
-  holeStatChip: {
-    backgroundColor: '#edf7ed',
-    color: GREEN,
-    fontSize: 13,
-    fontWeight: '600',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
+  holeStatBlock: { flex: 1, alignItems: 'center' },
+  holeStatLabel: { fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
+  holeStatValue: { fontSize: 26, fontWeight: 'bold', color: GREEN },
+  holeStatDivider: { width: 1, height: 36, backgroundColor: '#eee' },
   tapHint: { fontSize: 12, color: '#aaa', fontWeight: '400' },
   editBadge: { backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   editBadgeText: { fontSize: 12, color: '#856404', fontWeight: '600' },
