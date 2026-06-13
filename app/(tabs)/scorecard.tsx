@@ -7,20 +7,7 @@ import {
   ScrollView,
   Alert,
   SafeAreaView,
-  Image,
 } from 'react-native';
-
-const HOLE_IMAGES: Record<number, ReturnType<typeof require>> = {
-  1: require('../../assets/holes/hole1.png'),
-  2: require('../../assets/holes/hole2.png'),
-  3: require('../../assets/holes/hole3.png'),
-  4: require('../../assets/holes/hole4.png'),
-  5: require('../../assets/holes/hole5.png'),
-  6: require('../../assets/holes/hole6.png'),
-  7: require('../../assets/holes/hole7.png'),
-  8: require('../../assets/holes/hole8.png'),
-  9: require('../../assets/holes/hole9.png'),
-};
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
 import { useFocusEffect } from 'expo-router';
@@ -209,12 +196,21 @@ export default function ScorecardScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hole entry / edit card */}
         <View style={styles.card}>
-          {/* Full-bleed image — no padding, clips to card's rounded corners */}
-          <Image
-            source={HOLE_IMAGES[displayHole] ?? HOLE_IMAGES[1]}
-            style={styles.holeImage}
-            resizeMode="stretch"
-          />
+          {/* Code-drawn hole header */}
+          <View style={styles.holeHeader}>
+            <Text style={styles.holeCursive}>Hole {displayHole}</Text>
+            <View style={styles.greenScene}>
+              <View style={styles.greenBlob} />
+              <View style={styles.greenDark} />
+              <View style={[styles.golfBall, { bottom: 20, left: 18 }]} />
+              <View style={[styles.golfBall, { bottom: 15, left: 30 }]} />
+              <View style={styles.flagPole} />
+              <View style={styles.flag}>
+                <Text style={styles.flagNum}>{displayHole}</Text>
+              </View>
+              <View style={styles.holeCup} />
+            </View>
+          </View>
 
           <View style={styles.cardContent}>
             {isSavedHole && (
@@ -373,9 +369,93 @@ const styles = StyleSheet.create({
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
   parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
-  holeImage: {
-    width: '100%',
-    aspectRatio: 188 / 92,
+  holeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+    paddingRight: 12,
+    paddingVertical: 16,
+    backgroundColor: '#f6fbf6',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0ede0',
+  },
+  holeCursive: {
+    fontSize: 42,
+    fontStyle: 'italic',
+    fontFamily: 'Georgia, serif',
+    color: '#1b3a1b',
+    flex: 1,
+  },
+  greenScene: {
+    width: 140,
+    height: 95,
+    position: 'relative',
+    flexShrink: 0,
+  },
+  greenBlob: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 65,
+    backgroundColor: '#5cb85c',
+    borderTopLeftRadius: 72,
+    borderTopRightRadius: 50,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 38,
+  },
+  greenDark: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    width: 48,
+    height: 24,
+    backgroundColor: '#4cae4c',
+    borderRadius: 24,
+    opacity: 0.55,
+  },
+  golfBall: {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#fff',
+    borderWidth: 0.5,
+    borderColor: '#bbb',
+  },
+  flagPole: {
+    position: 'absolute',
+    bottom: 24,
+    left: 82,
+    width: 2,
+    height: 68,
+    backgroundColor: '#888',
+  },
+  flag: {
+    position: 'absolute',
+    top: 3,
+    left: 84,
+    width: 32,
+    height: 22,
+    backgroundColor: '#e53935',
+    borderRadius: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flagNum: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  holeCup: {
+    position: 'absolute',
+    bottom: 19,
+    left: 79,
+    width: 9,
+    height: 5,
+    backgroundColor: '#222',
+    borderRadius: 4,
   },
   holeStatsRow: {
     flexDirection: 'row',
