@@ -38,7 +38,9 @@ export default function ScorecardScreen() {
   const [score, setScore] = useState(HOLE_PARS[0] ?? 4);
   const [putts, setPutts] = useState(2);
   const [fairwayHit, setFairwayHit] = useState(false);
+  const [fairwayMiss, setFairwayMiss] = useState<'left' | 'right' | null>(null);
   const [gir, setGir] = useState(false);
+  const [girMiss, setGirMiss] = useState<'long' | 'short' | 'left' | 'right' | null>(null);
 
   function loadHoleIntoForm(holeNum: number, holes: Hole[]) {
     const saved = holes.find((h) => h.holeNumber === holeNum);
@@ -47,14 +49,18 @@ export default function ScorecardScreen() {
       setScore(saved.score);
       setPutts(saved.putts);
       setFairwayHit(!!saved.fairwayHit);
+      setFairwayMiss(saved.fairwayMiss ?? null);
       setGir(!!saved.greenInRegulation);
+      setGirMiss(saved.girMiss ?? null);
     } else {
       const p = HOLE_PARS[holeNum - 1] ?? DEFAULT_PARS[holeNum - 1] ?? 4;
       setPar(p);
       setScore(p);
       setPutts(2);
       setFairwayHit(false);
+      setFairwayMiss(null);
       setGir(false);
+      setGirMiss(null);
     }
   }
 
@@ -100,7 +106,11 @@ export default function ScorecardScreen() {
   }
 
   function handleSave() {
-    saveHole({ roundId: rid, holeNumber: displayHole, par, score, putts, fairwayHit, greenInRegulation: gir });
+    saveHole({
+      roundId: rid, holeNumber: displayHole, par, score, putts,
+      fairwayHit, fairwayMiss: fairwayHit ? null : fairwayMiss,
+      greenInRegulation: gir, girMiss: gir ? null : girMiss,
+    });
     const updated = getHoles(rid);
     setSavedHoles(updated);
 
@@ -249,23 +259,73 @@ export default function ScorecardScreen() {
               </View>
             </View>
 
+            {/* Fairway toggle + miss direction */}
             <View style={styles.toggleRow}>
               <TouchableOpacity
                 style={[styles.toggle, fairwayHit && styles.toggleActive]}
-                onPress={() => setFairwayHit(!fairwayHit)}
+                onPress={() => { setFairwayHit(!fairwayHit); setFairwayMiss(null); }}
               >
                 <Text style={[styles.toggleText, fairwayHit && styles.toggleTextActive]}>
                   🌿 Fairway
                 </Text>
               </TouchableOpacity>
+              {!fairwayHit && (
+                <View style={styles.missRow}>
+                  {(['left', 'right'] as const).map((dir) => (
+                    <TouchableOpacity
+                      key={dir}
+                      style={[styles.missBtn, fairwayMiss === dir && styles.missBtnActive]}
+                      onPress={() => setFairwayMiss(fairwayMiss === dir ? null : dir)}
+                    >
+                      <Text style={[styles.missBtnText, fairwayMiss === dir && styles.missBtnTextActive]}>
+                        {dir === 'left' ? '← L' : 'R →'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* GIR toggle + miss direction compass */}
+            <View style={styles.girRow}>
               <TouchableOpacity
                 style={[styles.toggle, gir && styles.toggleActive]}
-                onPress={() => setGir(!gir)}
+                onPress={() => { setGir(!gir); setGirMiss(null); }}
               >
                 <Text style={[styles.toggleText, gir && styles.toggleTextActive]}>
                   🏌️ GIR
                 </Text>
               </TouchableOpacity>
+              {!gir && (
+                <View style={styles.compassWrap}>
+                  <TouchableOpacity
+                    style={[styles.compassBtn, girMiss === 'long' && styles.missBtnActive]}
+                    onPress={() => setGirMiss(girMiss === 'long' ? null : 'long')}
+                  >
+                    <Text style={[styles.missBtnText, girMiss === 'long' && styles.missBtnTextActive]}>↑ Long</Text>
+                  </TouchableOpacity>
+                  <View style={styles.compassMiddle}>
+                    <TouchableOpacity
+                      style={[styles.compassBtn, girMiss === 'left' && styles.missBtnActive]}
+                      onPress={() => setGirMiss(girMiss === 'left' ? null : 'left')}
+                    >
+                      <Text style={[styles.missBtnText, girMiss === 'left' && styles.missBtnTextActive]}>← L</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.compassBtn, girMiss === 'right' && styles.missBtnActive]}
+                      onPress={() => setGirMiss(girMiss === 'right' ? null : 'right')}
+                    >
+                      <Text style={[styles.missBtnText, girMiss === 'right' && styles.missBtnTextActive]}>R →</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.compassBtn, girMiss === 'short' && styles.missBtnActive]}
+                    onPress={() => setGirMiss(girMiss === 'short' ? null : 'short')}
+                  >
+                    <Text style={[styles.missBtnText, girMiss === 'short' && styles.missBtnTextActive]}>↓ Short</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             <TouchableOpacity
@@ -282,29 +342,53 @@ export default function ScorecardScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Scorecard  <Text style={styles.tapHint}>(tap a row to edit)</Text></Text>
             <View style={styles.tableHeader}>
-              <Text style={[styles.tableCell, styles.tableHeaderText]}>#</Text>
-              <Text style={[styles.tableCell, styles.tableHeaderText]}>Par</Text>
-              <Text style={[styles.tableCell, styles.tableHeaderText]}>Score</Text>
-              <Text style={[styles.tableCell, styles.tableHeaderText]}>+/-</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellHoleCol]}>#</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellSmall]}>Par</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellSmall]}>Score</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellSmall]}>+/-</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>FW</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>GIR</Text>
             </View>
             {savedHoles.map((h) => {
               const diff = h.score - h.par;
               const isActiveRow = h.holeNumber === displayHole;
+              const fwIcon = h.fairwayHit ? '✓' : h.fairwayMiss === 'left' ? '←' : h.fairwayMiss === 'right' ? '→' : '·';
+              const fwColor = h.fairwayHit ? GREEN : h.fairwayMiss ? '#e07000' : '#bbb';
+              const girIcon = h.greenInRegulation ? '✓' : h.girMiss === 'long' ? '↑' : h.girMiss === 'short' ? '↓' : h.girMiss === 'left' ? '←' : h.girMiss === 'right' ? '→' : '·';
+              const girColor = h.greenInRegulation ? GREEN : h.girMiss ? '#e07000' : '#bbb';
               return (
                 <TouchableOpacity
                   key={h.holeNumber}
                   style={[styles.tableRow, isActiveRow && styles.tableRowActive]}
                   onPress={() => jumpToHole(h.holeNumber)}
                 >
-                  <Text style={[styles.tableCell, styles.tableCellHole]}>{h.holeNumber}</Text>
-                  <Text style={styles.tableCell}>{h.par}</Text>
-                  <Text style={styles.tableCell}>{h.score}</Text>
-                  <Text style={[styles.tableCell, { color: diff < 0 ? '#c00' : diff === 0 ? GREEN : '#555' }]}>
+                  <Text style={[styles.tableCell, styles.tableCellHole, styles.cellHoleCol]}>{h.holeNumber}</Text>
+                  <Text style={[styles.tableCell, styles.cellSmall]}>{h.par}</Text>
+                  <Text style={[styles.tableCell, styles.cellSmall]}>{h.score}</Text>
+                  <Text style={[styles.tableCell, styles.cellSmall, { color: diff < 0 ? '#c00' : diff === 0 ? GREEN : '#555' }]}>
                     {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
                   </Text>
+                  <Text style={[styles.tableCell, styles.cellMiss, { color: fwColor, fontWeight: '700' }]}>{fwIcon}</Text>
+                  <Text style={[styles.tableCell, styles.cellMiss, { color: girColor, fontWeight: '700' }]}>{girIcon}</Text>
                 </TouchableOpacity>
               );
             })}
+            {/* Footer: running FW% and GIR% */}
+            {(() => {
+              const fwHit = savedHoles.filter((h) => h.fairwayHit).length;
+              const girHit = savedHoles.filter((h) => h.greenInRegulation).length;
+              const total = savedHoles.length;
+              return (
+                <View style={styles.tableFooter}>
+                  <Text style={styles.tableFooterText}>
+                    FW {fwHit}/{total} ({Math.round(fwHit / total * 100)}%)
+                  </Text>
+                  <Text style={styles.tableFooterText}>
+                    GIR {girHit}/{total} ({Math.round(girHit / total * 100)}%)
+                  </Text>
+                </View>
+              );
+            })()}
           </View>
         )}
       </ScrollView>
@@ -485,7 +569,8 @@ const styles = StyleSheet.create({
   counterBtnText: { fontSize: 20, color: '#333', lineHeight: 24 },
   counterValue: { fontSize: 24, fontWeight: 'bold', color: '#222', minWidth: 32, textAlign: 'center' },
   scoreDiff: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
-  toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 10, alignItems: 'center' },
+  girRow: { marginBottom: 16 },
   toggle: {
     flex: 1, borderWidth: 1, borderColor: '#ddd',
     borderRadius: 8, paddingVertical: 10, alignItems: 'center',
@@ -493,15 +578,38 @@ const styles = StyleSheet.create({
   toggleActive: { backgroundColor: GREEN, borderColor: GREEN },
   toggleText: { fontSize: 13, color: '#444' },
   toggleTextActive: { color: '#fff', fontWeight: '600' },
+  missRow: { flexDirection: 'row', gap: 6 },
+  missBtn: {
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 8,
+  },
+  missBtnActive: { backgroundColor: '#e53935', borderColor: '#e53935' },
+  missBtnText: { fontSize: 13, color: '#555', fontWeight: '600' },
+  missBtnTextActive: { color: '#fff' },
+  compassWrap: { alignItems: 'center', gap: 4, marginTop: 8 },
+  compassMiddle: { flexDirection: 'row', gap: 24 },
+  compassBtn: {
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    paddingHorizontal: 16, paddingVertical: 8,
+    minWidth: 70, alignItems: 'center',
+  },
   nextBtn: { backgroundColor: GREEN, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
   updateBtn: { backgroundColor: '#5a8f5a' },
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', paddingBottom: 6, marginBottom: 4 },
+  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', paddingBottom: 6, marginBottom: 4, paddingHorizontal: 12 },
   tableHeaderText: { fontWeight: '600', color: '#555', fontSize: 12 },
-  tableRow: { flexDirection: 'row', paddingVertical: 8, borderRadius: 6 },
+  tableRow: { flexDirection: 'row', paddingVertical: 8, borderRadius: 6, paddingHorizontal: 12 },
   tableRowActive: { backgroundColor: '#f0f6f0' },
   tableCell: { flex: 1, textAlign: 'center', fontSize: 14, color: '#333' },
+  cellHoleCol: { flex: 0.6 },
+  cellSmall: { flex: 0.8 },
+  cellMiss: { flex: 0.7 },
   tableCellHole: { fontWeight: '700', color: GREEN },
+  tableFooter: {
+    flexDirection: 'row', justifyContent: 'space-around',
+    paddingVertical: 10, borderTopWidth: 1, borderColor: '#eee', marginTop: 4,
+  },
+  tableFooterText: { fontSize: 13, fontWeight: '600', color: GREEN },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 12 },

@@ -10,6 +10,8 @@ export type Hole = {
   putts: number;
   fairwayHit: boolean;
   greenInRegulation: boolean;
+  girMiss?: 'long' | 'short' | 'left' | 'right' | null;
+  fairwayMiss?: 'left' | 'right' | null;
 };
 
 export type Round = {
