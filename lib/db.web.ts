@@ -125,6 +125,43 @@ export function finalizeRound(roundId: number) {
   const round = rounds.find(r => r.id === roundId);
   if (round) { round.totalScore = totalScore; round.totalPar = totalPar; }
   syncToCloud();
+
+  // Auto-post to social feed so friends see the round
+  if (cloudUserId && round && roundHoles.length > 0) {
+    const fwEligible = roundHoles.filter(h => h.par !== 3);
+    const girPct = Math.round(roundHoles.filter(h => h.greenInRegulation).length / roundHoles.length * 100);
+    const fwPct = fwEligible.length > 0
+      ? Math.round(fwEligible.filter(h => h.fairwayHit).length / fwEligible.length * 100) : 0;
+    const avgPutts = roundHoles.reduce((s, h) => s + h.putts, 0) / roundHoles.length;
+    const scrambOpps = roundHoles.filter(h => !h.greenInRegulation);
+    const scramblingPct = scrambOpps.length > 0
+      ? Math.round(scrambOpps.filter(h => h.score <= h.par).length / scrambOpps.length * 100) : 0;
+    const totalPenalties = roundHoles.reduce((s, h) => s + (h.penalties ?? 0), 0);
+    const payload = {
+      user_id: cloudUserId,
+      course_name: round.courseName,
+      total_score: totalScore,
+      total_par: totalPar,
+      total_holes: round.totalHoles,
+      date: round.date,
+      notes: '',
+      local_round_id: roundId,
+      gir_pct: girPct,
+      fw_pct: fwPct,
+      avg_putts: avgPutts,
+      scrambling_pct: scramblingPct,
+      penalties: totalPenalties,
+    };
+    // Update if already posted, otherwise insert
+    supabase.from('posts').select('id').eq('user_id', cloudUserId).eq('local_round_id', roundId).single()
+      .then(({ data }) => {
+        if (data) {
+          supabase.from('posts').update(payload).eq('id', data.id).then();
+        } else {
+          supabase.from('posts').insert(payload).then();
+        }
+      });
+  }
 }
 
 export function getRounds(): Round[] {
@@ -141,6 +178,12 @@ export function deleteRound(roundId: number) {
   rounds = rounds.filter(r => r.id !== roundId);
   holes = holes.filter(h => h.roundId !== roundId);
   syncToCloud();
+  if (cloudUserId) {
+    supabase.from('posts').delete()
+      .eq('user_id', cloudUserId)
+      .eq('local_round_id', roundId)
+      .then();
+  }
 }
 
 export function markRoundShared(roundId: number, remoteId: string) {

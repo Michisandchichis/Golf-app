@@ -34,6 +34,12 @@ export type Post = {
   date: string;
   notes: string | null;
   created_at: string;
+  local_round_id?: number | null;
+  gir_pct?: number | null;
+  fw_pct?: number | null;
+  avg_putts?: number | null;
+  scrambling_pct?: number | null;
+  penalties?: number | null;
   profiles?: Profile;
 };
 
