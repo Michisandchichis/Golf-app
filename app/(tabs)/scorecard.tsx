@@ -346,12 +346,14 @@ export default function ScorecardScreen() {
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellSmall]}>Par</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellSmall]}>Score</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellSmall]}>+/-</Text>
+              <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>Putts</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>FW</Text>
               <Text style={[styles.tableCell, styles.tableHeaderText, styles.cellMiss]}>GIR</Text>
             </View>
             {savedHoles.map((h) => {
               const diff = h.score - h.par;
               const isActiveRow = h.holeNumber === displayHole;
+              const puttColor = h.putts <= 1 ? GREEN : h.putts === 2 ? '#bbb' : '#e07000';
               const fwIcon = h.fairwayHit ? '✓' : h.fairwayMiss === 'left' ? '←' : h.fairwayMiss === 'right' ? '→' : '·';
               const fwColor = h.fairwayHit ? GREEN : h.fairwayMiss ? '#e07000' : '#bbb';
               const girIcon = h.greenInRegulation ? '✓' : h.girMiss === 'long' ? '↑' : h.girMiss === 'short' ? '↓' : h.girMiss === 'left' ? '←' : h.girMiss === 'right' ? '→' : '·';
@@ -368,18 +370,23 @@ export default function ScorecardScreen() {
                   <Text style={[styles.tableCell, styles.cellSmall, { color: diff < 0 ? '#c00' : diff === 0 ? GREEN : '#555' }]}>
                     {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
                   </Text>
+                  <Text style={[styles.tableCell, styles.cellMiss, { color: puttColor, fontWeight: '700' }]}>{h.putts}</Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: fwColor, fontWeight: '700' }]}>{fwIcon}</Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: girColor, fontWeight: '700' }]}>{girIcon}</Text>
                 </TouchableOpacity>
               );
             })}
-            {/* Footer: running FW% and GIR% */}
+            {/* Footer: total putts, FW%, GIR% */}
             {(() => {
               const fwHit = savedHoles.filter((h) => h.fairwayHit).length;
               const girHit = savedHoles.filter((h) => h.greenInRegulation).length;
+              const totalPutts = savedHoles.reduce((s, h) => s + h.putts, 0);
               const total = savedHoles.length;
               return (
                 <View style={styles.tableFooter}>
+                  <Text style={styles.tableFooterText}>
+                    {totalPutts} putts
+                  </Text>
                   <Text style={styles.tableFooterText}>
                     FW {fwHit}/{total} ({Math.round(fwHit / total * 100)}%)
                   </Text>
