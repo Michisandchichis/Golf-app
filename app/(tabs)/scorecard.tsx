@@ -10,10 +10,13 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { saveHole, finalizeRound, getHoles, Hole } from '../../lib/db';
 import NewRoundSheet from '../../components/NewRoundSheet';
+import HonorUnlockedModal from '../../components/HonorUnlockedModal';
 import { useFocusEffect } from 'expo-router';
+import { colors, fonts, spacing, radius, typography } from '../../lib/theme';
+import { supabase } from '../../lib/supabase';
+import { detectNewMilestones, MilestoneDefinition } from '../../lib/achievements';
 
 const DEFAULT_PARS = [4, 4, 3, 4, 5, 4, 3, 4, 5, 4, 4, 3, 4, 5, 4, 3, 4, 5];
-const GREEN = '#2d6a2d';
 
 export default function ScorecardScreen() {
   const { roundId, totalHoles, courseName, pars: parsParam, yards: yardsParam, handicaps: handicapsParam } = useLocalSearchParams<{
@@ -45,6 +48,10 @@ export default function ScorecardScreen() {
   const [penalties, setPenalties] = useState(0);
   const [roundComplete, setRoundComplete] = useState<{ score: number; diff: number } | null>(null);
   const [showNewRound, setShowNewRound] = useState(false);
+  const [honorQueue, setHonorQueue] = useState<MilestoneDefinition[]>([]);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [finalizedRound, setFinalizedRound] = useState<{ score: number; par: number } | null>(null);
 
   function loadHoleIntoForm(holeNum: number, holes: Hole[]) {
     const saved = holes.find((h) => h.holeNumber === holeNum);
@@ -102,7 +109,7 @@ export default function ScorecardScreen() {
   const totalPar = savedHoles.reduce((s, h) => s + h.par, 0);
   const runningToPar = totalScore - totalPar;
   const scoreDiff = score - par;
-  const scoreColor = scoreDiff < 0 ? '#c00' : scoreDiff === 0 ? GREEN : '#555';
+  const scoreColor = scoreDiff < 0 ? colors.gold : scoreDiff === 0 ? colors.emeraldLight : colors.gray;
   const isSavedHole = savedHoles.some((h) => h.holeNumber === displayHole);
   const isLastHole = displayHole === numHoles && !isSavedHole;
 
@@ -111,7 +118,27 @@ export default function ScorecardScreen() {
     loadHoleIntoForm(holeNum, savedHoles);
   }
 
-  function handleSave() {
+  async function checkMilestones(finalScore: number, finalPar: number) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setCurrentUserId(user.id);
+    const roundObj = {
+      id: rid,
+      totalScore: finalScore,
+      totalPar: finalPar,
+      totalHoles: numHoles,
+      courseName: courseName ?? '',
+      date: new Date().toISOString().split('T')[0],
+      notes: '',
+    };
+    const newMilestones = await detectNewMilestones(roundObj, getHoles(rid), user.id);
+    if (newMilestones.length > 0) {
+      setFinalizedRound({ score: finalScore, par: finalPar });
+      setHonorQueue(newMilestones);
+    }
+  }
+
+  async function handleSave() {
     saveHole({
       roundId: rid, holeNumber: displayHole, par, score, putts,
       fairwayHit: par === 3 ? false : fairwayHit,
@@ -127,6 +154,7 @@ export default function ScorecardScreen() {
       const finalScore = updated.reduce((s, h) => s + h.score, 0);
       const finalPar = updated.reduce((s, h) => s + h.par, 0);
       finalizeRound(rid);
+      await checkMilestones(finalScore, finalPar);
       setRoundComplete({ score: finalScore, diff: finalScore - finalPar });
     } else if (isSavedHole) {
       // Edited existing hole, round not yet complete — return to next unplayed hole
@@ -144,8 +172,29 @@ export default function ScorecardScreen() {
       const finalPar = updated.reduce((s, h) => s + h.par, 0);
       const diff = finalScore - finalPar;
       finalizeRound(rid);
+      await checkMilestones(finalScore, finalPar);
       setRoundComplete({ score: finalScore, diff });
     }
+  }
+
+  function proceedFromRoundComplete(next: () => void) {
+    setRoundComplete(null);
+    if (honorQueue.length > 0) {
+      setPendingAction(next);
+    } else {
+      next();
+    }
+  }
+
+  function dismissCurrentHonor() {
+    setHonorQueue((prev) => {
+      const rest = prev.slice(1);
+      if (rest.length === 0) {
+        pendingAction?.();
+        setPendingAction(null);
+      }
+      return rest;
+    });
   }
 
   function Counter({ value, onChange, min = 0 }: { value: number; onChange: (v: number) => void; min?: number }) {
@@ -285,7 +334,7 @@ export default function ScorecardScreen() {
                 <Counter value={putts} onChange={setPutts} min={0} />
               </View>
               <View style={styles.rowItem}>
-                <Text style={[styles.rowLabel, penalties > 0 && { color: '#c62828' }]}>Penalties</Text>
+                <Text style={[styles.rowLabel, penalties > 0 && { color: colors.danger }]}>Penalties</Text>
                 <Counter value={penalties} onChange={setPenalties} min={0} />
               </View>
             </View>
@@ -387,11 +436,11 @@ export default function ScorecardScreen() {
             {savedHoles.map((h) => {
               const diff = h.score - h.par;
               const isActiveRow = h.holeNumber === displayHole;
-              const puttColor = h.putts <= 1 ? GREEN : h.putts === 2 ? '#bbb' : '#e07000';
+              const puttColor = h.putts <= 1 ? colors.emeraldLight : h.putts === 2 ? colors.gray : '#e07000';
               const fwIcon = h.par === 3 ? '—' : h.fairwayHit ? '✓' : '·';
-              const fwColor = h.par === 3 ? '#ddd' : h.fairwayHit ? GREEN : '#bbb';
+              const fwColor = h.par === 3 ? colors.gray : h.fairwayHit ? colors.emeraldLight : colors.gray;
               const girIcon = h.greenInRegulation ? '✓' : '·';
-              const girColor = h.greenInRegulation ? GREEN : '#bbb';
+              const girColor = h.greenInRegulation ? colors.emeraldLight : colors.gray;
               return (
                 <TouchableOpacity
                   key={h.holeNumber}
@@ -401,13 +450,13 @@ export default function ScorecardScreen() {
                   <Text style={[styles.tableCell, styles.tableCellHole, styles.cellHoleCol]}>{h.holeNumber}</Text>
                   <Text style={[styles.tableCell, styles.cellSmall]}>{h.par}</Text>
                   <Text style={[styles.tableCell, styles.cellSmall]}>{h.score}</Text>
-                  <Text style={[styles.tableCell, styles.cellSmall, { color: diff < 0 ? '#c00' : diff === 0 ? GREEN : '#555' }]}>
+                  <Text style={[styles.tableCell, styles.cellSmall, { color: diff < 0 ? colors.gold : diff === 0 ? colors.emeraldLight : colors.gray }]}>
                     {diff === 0 ? 'E' : diff > 0 ? `+${diff}` : diff}
                   </Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: puttColor, fontWeight: '700' }]}>{h.putts}</Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: fwColor, fontWeight: '700' }]}>{fwIcon}</Text>
                   <Text style={[styles.tableCell, styles.cellMiss, { color: girColor, fontWeight: '700' }]}>{girIcon}</Text>
-                  <Text style={[styles.tableCell, styles.cellMiss, { color: (h.penalties ?? 0) > 0 ? '#c62828' : '#ddd', fontWeight: '700' }]}>
+                  <Text style={[styles.tableCell, styles.cellMiss, { color: (h.penalties ?? 0) > 0 ? colors.danger : colors.gray, fontWeight: '700' }]}>
                     {(h.penalties ?? 0) > 0 ? h.penalties : '·'}
                   </Text>
                 </TouchableOpacity>
@@ -431,7 +480,7 @@ export default function ScorecardScreen() {
                     GIR {girHit}/{total} ({Math.round(girHit / total * 100)}%)
                   </Text>
                   {totalPens > 0 && (
-                    <Text style={[styles.tableFooterText, { color: '#c62828' }]}>{totalPens} pen</Text>
+                    <Text style={[styles.tableFooterText, { color: colors.danger }]}>{totalPens} pen</Text>
                   )}
                 </View>
               );
@@ -452,51 +501,69 @@ export default function ScorecardScreen() {
             </Text>
             <TouchableOpacity
               style={styles.completeBtn}
-              onPress={() => { setRoundComplete(null); setShowNewRound(true); }}
+              onPress={() => proceedFromRoundComplete(() => setShowNewRound(true))}
             >
               <Text style={styles.completeBtnText}>Start New Round</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.completeBtnOutline}
-              onPress={() => setRoundComplete(null)}
+              onPress={() => proceedFromRoundComplete(() => {})}
             >
               <Text style={styles.completeBtnOutlineText}>Edit Round</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.completeBtnGhost}
-              onPress={() => { setRoundComplete(null); router.push('/(tabs)'); }}
+              onPress={() => proceedFromRoundComplete(() => router.push('/(tabs)'))}
             >
               <Text style={styles.completeBtnGhostText}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
+      {honorQueue.length > 0 && currentUserId && finalizedRound && (
+        <HonorUnlockedModal
+          milestone={honorQueue[0]}
+          userId={currentUserId}
+          round={{
+            id: rid,
+            totalScore: finalizedRound.score,
+            totalPar: finalizedRound.par,
+            totalHoles: numHoles,
+            courseName: courseName ?? '',
+            date: new Date().toISOString().split('T')[0],
+            notes: '',
+          }}
+          onDone={dismissCurrentHonor}
+        />
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.bg },
   topBar: {
-    backgroundColor: GREEN,
+    backgroundColor: colors.bgSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.hairline,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
     paddingVertical: 10,
   },
   homeBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
+    backgroundColor: colors.inputBg,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  homeBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  totalScore: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  homeBtnText: { color: colors.offWhite, fontSize: 14, fontFamily: fonts.bodySemiBold },
+  totalScore: { color: colors.gold, fontSize: 16, fontFamily: fonts.bodySemiBold },
   holeSelectorWrap: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgSecondary,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: colors.hairline,
   },
   holeSelector: {
     flexDirection: 'row',
@@ -508,30 +575,34 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#eee',
+    backgroundColor: colors.inputBg,
+    borderWidth: 1,
+    borderColor: colors.inputBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  holeDotSaved: { backgroundColor: GREEN },
-  holeDotActive: { backgroundColor: GREEN, borderWidth: 3, borderColor: '#fff', shadowColor: GREEN, shadowOpacity: 0.5, shadowRadius: 4, elevation: 4 },
-  holeDotText: { fontSize: 13, fontWeight: '700', color: '#555' },
-  holeDotTextLight: { color: '#fff' },
-  scroll: { padding: 16, gap: 16 },
+  holeDotSaved: { backgroundColor: colors.emerald, borderColor: colors.emerald },
+  holeDotActive: { backgroundColor: colors.emerald, borderWidth: 2, borderColor: colors.gold, shadowColor: colors.gold, shadowOpacity: 0.4, shadowRadius: 4, elevation: 4 },
+  holeDotText: { fontSize: 13, fontFamily: fonts.bodySemiBold, color: colors.gray },
+  holeDotTextLight: { color: colors.offWhite },
+  scroll: { padding: spacing.md, gap: spacing.md },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.bgSecondary,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
     elevation: 3,
   },
   cardContent: {
-    padding: 16,
+    padding: spacing.md,
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
-  parLabel: { fontSize: 14, fontWeight: '400', color: '#888' },
+  cardTitle: { fontSize: 17, fontFamily: fonts.bodySemiBold, color: colors.offWhite },
+  parLabel: { fontSize: 14, color: colors.gray },
   holeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -539,19 +610,18 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 12,
     paddingVertical: 16,
-    backgroundColor: '#f6fbf6',
+    backgroundColor: colors.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0ede0',
+    borderBottomColor: colors.hairline,
   },
   courseNameLabel: {
-    fontSize: 12, color: '#5a8a5a', fontWeight: '600',
+    fontSize: 12, color: colors.gold, fontFamily: fonts.bodySemiBold,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2,
   },
   holeCursive: {
-    fontSize: 42,
-    fontStyle: 'italic',
-    fontFamily: 'Georgia, serif',
-    color: '#1b3a1b',
+    fontSize: 40,
+    fontFamily: fonts.heading,
+    color: colors.offWhite,
   },
   greenScene: {
     width: 140,
@@ -565,7 +635,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 65,
-    backgroundColor: '#5cb85c',
+    backgroundColor: colors.emerald,
     borderTopLeftRadius: 72,
     borderTopRightRadius: 50,
     borderBottomLeftRadius: 28,
@@ -577,18 +647,18 @@ const styles = StyleSheet.create({
     left: 8,
     width: 48,
     height: 24,
-    backgroundColor: '#4cae4c',
+    backgroundColor: colors.emeraldLight,
     borderRadius: 24,
-    opacity: 0.55,
+    opacity: 0.45,
   },
   golfBall: {
     position: 'absolute',
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#fff',
+    backgroundColor: colors.offWhite,
     borderWidth: 0.5,
-    borderColor: '#bbb',
+    borderColor: colors.gray,
   },
   flagPole: {
     position: 'absolute',
@@ -596,7 +666,7 @@ const styles = StyleSheet.create({
     left: 82,
     width: 2,
     height: 68,
-    backgroundColor: '#888',
+    backgroundColor: colors.gray,
   },
   flag: {
     position: 'absolute',
@@ -604,15 +674,15 @@ const styles = StyleSheet.create({
     left: 84,
     width: 32,
     height: 22,
-    backgroundColor: '#e53935',
+    backgroundColor: colors.gold,
     borderRadius: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   flagNum: {
-    color: '#fff',
+    color: colors.bg,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontFamily: fonts.bodySemiBold,
   },
   holeCup: {
     position: 'absolute',
@@ -620,7 +690,7 @@ const styles = StyleSheet.create({
     left: 79,
     width: 9,
     height: 5,
-    backgroundColor: '#222',
+    backgroundColor: '#000',
     borderRadius: 4,
   },
   holeStatsRow: {
@@ -630,95 +700,97 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#eee',
+    borderColor: colors.hairline,
   },
   holeStatBlock: { flex: 1, alignItems: 'center' },
-  holeStatLabel: { fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
-  holeStatValue: { fontSize: 26, fontWeight: 'bold', color: GREEN },
-  holeStatDivider: { width: 1, height: 36, backgroundColor: '#eee' },
-  tapHint: { fontSize: 12, color: '#aaa', fontWeight: '400' },
-  editBadge: { backgroundColor: '#fff3cd', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
-  editBadgeText: { fontSize: 12, color: '#856404', fontWeight: '600' },
+  holeStatLabel: { fontSize: 11, color: colors.gray, fontFamily: fonts.bodySemiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 3 },
+  holeStatValue: { fontSize: 26, fontFamily: fonts.bodySemiBold, color: colors.gold },
+  holeStatDivider: { width: 1, height: 36, backgroundColor: colors.hairline },
+  tapHint: { fontSize: 12, color: colors.gray },
+  editBadge: { backgroundColor: 'rgba(198,162,103,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  editBadgeText: { fontSize: 12, color: colors.gold, fontFamily: fonts.bodySemiBold },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12, alignItems: 'flex-end' },
   rowItem: { flex: 1, alignItems: 'center' },
-  rowLabel: { fontSize: 12, color: '#666', marginBottom: 6 },
+  rowLabel: { fontSize: 12, color: colors.gray, marginBottom: 6 },
   counter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   counterBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#eee', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder,
+    alignItems: 'center', justifyContent: 'center',
   },
-  counterBtnText: { fontSize: 20, color: '#333', lineHeight: 24 },
-  counterValue: { fontSize: 24, fontWeight: 'bold', color: '#222', minWidth: 32, textAlign: 'center' },
-  scoreDiff: { fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
+  counterBtnText: { fontSize: 20, color: colors.offWhite, lineHeight: 24 },
+  counterValue: { fontSize: 24, fontFamily: fonts.bodySemiBold, color: colors.offWhite, minWidth: 32, textAlign: 'center' },
+  scoreDiff: { fontSize: 28, fontFamily: fonts.bodySemiBold, textAlign: 'center', marginBottom: 4 },
   toggleRow: { flexDirection: 'row', gap: 10, marginBottom: 10, alignItems: 'center' },
   girRow: { marginBottom: 16 },
   toggle: {
-    flex: 1, borderWidth: 1, borderColor: '#ddd',
-    borderRadius: 8, paddingVertical: 10, alignItems: 'center',
+    flex: 1, borderWidth: 1, borderColor: colors.inputBorder,
+    borderRadius: radius.sm, paddingVertical: 10, alignItems: 'center',
   },
-  toggleActive: { backgroundColor: GREEN, borderColor: GREEN },
-  toggleText: { fontSize: 13, color: '#444' },
-  toggleTextActive: { color: '#fff', fontWeight: '600' },
+  toggleActive: { backgroundColor: colors.emerald, borderColor: colors.emerald },
+  toggleText: { fontSize: 13, color: colors.offWhite },
+  toggleTextActive: { color: colors.offWhite, fontFamily: fonts.bodySemiBold },
   missRow: { flexDirection: 'row', gap: 6 },
   missBtn: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.sm,
     paddingHorizontal: 14, paddingVertical: 8,
   },
-  missBtnActive: { backgroundColor: '#e53935', borderColor: '#e53935' },
-  missBtnText: { fontSize: 13, color: '#555', fontWeight: '600' },
-  missBtnTextActive: { color: '#fff' },
+  missBtnActive: { backgroundColor: colors.danger, borderColor: colors.danger },
+  missBtnText: { fontSize: 13, color: colors.offWhite, fontFamily: fonts.bodySemiBold },
+  missBtnTextActive: { color: colors.offWhite },
   compassWrap: { alignItems: 'center', gap: 4, marginTop: 8 },
   compassMiddle: { flexDirection: 'row', gap: 24 },
   compassBtn: {
-    borderWidth: 1, borderColor: '#ddd', borderRadius: 8,
+    borderWidth: 1, borderColor: colors.inputBorder, borderRadius: radius.sm,
     paddingHorizontal: 16, paddingVertical: 8,
     minWidth: 70, alignItems: 'center',
   },
-  nextBtn: { backgroundColor: GREEN, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  updateBtn: { backgroundColor: '#5a8f5a' },
-  nextBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#eee', paddingBottom: 6, marginBottom: 4, paddingHorizontal: 12 },
-  tableHeaderText: { fontWeight: '600', color: '#555', fontSize: 12 },
+  nextBtn: { backgroundColor: colors.emerald, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center' },
+  updateBtn: { backgroundColor: colors.emeraldLight },
+  nextBtnText: { color: colors.offWhite, fontSize: 16, fontFamily: fonts.bodySemiBold },
+  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: colors.hairline, paddingBottom: 6, marginBottom: 4, paddingHorizontal: 12 },
+  tableHeaderText: { fontFamily: fonts.bodySemiBold, color: colors.gray, fontSize: 12 },
   tableRow: { flexDirection: 'row', paddingVertical: 8, borderRadius: 6, paddingHorizontal: 12 },
-  tableRowActive: { backgroundColor: '#f0f6f0' },
-  tableCell: { flex: 1, textAlign: 'center', fontSize: 14, color: '#333' },
+  tableRowActive: { backgroundColor: colors.inputBg },
+  tableCell: { flex: 1, textAlign: 'center', fontSize: 14, color: colors.offWhite },
   cellHoleCol: { flex: 0.6 },
   cellSmall: { flex: 0.8 },
   cellMiss: { flex: 0.7 },
-  tableCellHole: { fontWeight: '700', color: GREEN },
+  tableCellHole: { fontWeight: '700', color: colors.gold },
   tableFooter: {
     flexDirection: 'row', justifyContent: 'space-around',
-    paddingVertical: 10, borderTopWidth: 1, borderColor: '#eee', marginTop: 4,
+    paddingVertical: 10, borderTopWidth: 1, borderColor: colors.hairline, marginTop: 4,
   },
-  tableFooterText: { fontSize: 13, fontWeight: '600', color: GREEN },
+  tableFooterText: { fontSize: 13, fontFamily: fonts.bodySemiBold, color: colors.gold },
   completeOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 32,
+    backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 32,
     zIndex: 999,
   },
   completeCard: {
-    backgroundColor: '#fff', borderRadius: 20, padding: 32, width: '100%', alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 16, elevation: 10,
+    backgroundColor: colors.bgSecondary, borderRadius: radius.xl, padding: 32, width: '100%', alignItems: 'center',
+    borderWidth: 1, borderColor: colors.hairline,
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 20, elevation: 10,
   },
   completeTrophy: { fontSize: 56, marginBottom: 8 },
-  completeTitle: { fontSize: 24, fontWeight: 'bold', color: '#222', marginBottom: 4 },
-  completeScore: { fontSize: 36, fontWeight: 'bold', color: GREEN, marginBottom: 28 },
+  completeTitle: { fontSize: 24, fontFamily: fonts.heading, color: colors.offWhite, marginBottom: 4 },
+  completeScore: { fontSize: 36, fontFamily: fonts.bodySemiBold, color: colors.gold, marginBottom: 28 },
   completeBtn: {
-    backgroundColor: GREEN, borderRadius: 12, paddingVertical: 14,
+    backgroundColor: colors.emerald, borderRadius: radius.md, paddingVertical: 14,
     alignItems: 'center', width: '100%', marginBottom: 10,
   },
-  completeBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  completeBtnText: { color: colors.offWhite, fontSize: 16, fontFamily: fonts.bodySemiBold },
   completeBtnOutline: {
-    borderWidth: 1.5, borderColor: GREEN, borderRadius: 12, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: colors.gold, borderRadius: radius.md, paddingVertical: 14,
     alignItems: 'center', width: '100%', marginBottom: 10,
   },
-  completeBtnOutlineText: { color: GREEN, fontSize: 16, fontWeight: '600' },
+  completeBtnOutlineText: { color: colors.gold, fontSize: 16, fontFamily: fonts.bodySemiBold },
   completeBtnGhost: { paddingVertical: 12, alignItems: 'center', width: '100%' },
-  completeBtnGhostText: { color: '#aaa', fontSize: 15 },
+  completeBtnGhostText: { color: colors.gray, fontSize: 15 },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginTop: 12 },
-  emptySub: { fontSize: 14, color: '#888', marginTop: 6, textAlign: 'center' },
-  goHomeBtn: { backgroundColor: GREEN, borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12, marginTop: 20 },
-  goHomeBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  emptyTitle: { fontSize: 20, fontFamily: fonts.heading, color: colors.offWhite, marginTop: 12 },
+  emptySub: { fontSize: 14, color: colors.gray, marginTop: 6, textAlign: 'center' },
+  goHomeBtn: { backgroundColor: colors.emerald, borderRadius: radius.md, paddingHorizontal: 24, paddingVertical: 12, marginTop: 20 },
+  goHomeBtnText: { color: colors.offWhite, fontFamily: fonts.bodySemiBold, fontSize: 15 },
 });

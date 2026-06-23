@@ -11,14 +11,16 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase, Post, Profile } from '../../lib/supabase';
-
-const GREEN = '#2d6a2d';
+import { colors, fonts, spacing, radius, shadow, typography } from '../../lib/theme';
+import { ALL_MILESTONES, RARITY_META, MilestoneDefinition } from '../../lib/achievements';
 
 export default function ProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [recentUnlocked, setRecentUnlocked] = useState<MilestoneDefinition[]>([]);
+  const [unlockedCount, setUnlockedCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,17 +34,26 @@ export default function ProfileScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) setCurrentUserId(user.id);
 
-    const [profileRes, postsRes, followRes] = await Promise.all([
+    const [profileRes, postsRes, followRes, achievementsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', id).single(),
       supabase.from('posts').select('*').eq('user_id', id).order('created_at', { ascending: false }),
       user
         ? supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', id).maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase.from('achievements').select('milestone_key, achieved_at').eq('user_id', id).order('achieved_at', { ascending: false }),
     ]);
 
     setProfile(profileRes.data);
     setPosts((postsRes.data as Post[]) ?? []);
     setIsFollowing(!!followRes.data);
+    const unlockedRows = achievementsRes.data ?? [];
+    setUnlockedCount(unlockedRows.length);
+    setRecentUnlocked(
+      unlockedRows
+        .slice(0, 5)
+        .map((a: any) => ALL_MILESTONES.find((m) => m.key === a.milestone_key))
+        .filter((m): m is MilestoneDefinition => !!m)
+    );
     setLoading(false);
   }
 
@@ -75,7 +86,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator style={{ marginTop: 48 }} color={GREEN} size="large" />
+        <ActivityIndicator style={{ marginTop: 48 }} color={colors.gold} size="large" />
       </SafeAreaView>
     );
   }
@@ -96,7 +107,9 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <View style={styles.profileSection}>
-            <Text style={styles.avatar}>🏌️</Text>
+            <View style={styles.avatarRing}>
+              <Text style={styles.avatar}>🏌️</Text>
+            </View>
             <Text style={styles.username}>@{profile?.username ?? 'golfer'}</Text>
             <Text style={styles.roundCount}>
               {posts.length} round{posts.length !== 1 ? 's' : ''} shared
@@ -117,6 +130,27 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             )}
+
+            <Text style={styles.sectionLabel}>Recently Unlocked</Text>
+            {recentUnlocked.length > 0 ? (
+              <View style={styles.honorsRow}>
+                {recentUnlocked.map((m) => (
+                  <View key={m.key} style={[styles.honorBadge, styles.honorBadgeUnlocked, { borderColor: RARITY_META[m.rarity].color }]}>
+                    <Text style={styles.honorIcon}>{m.icon}</Text>
+                    <Text style={styles.honorLabel}>{m.label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noHonorsYet}>No honors unlocked yet</Text>
+            )}
+
+            <TouchableOpacity
+              style={styles.trophyCaseBtn}
+              onPress={() => router.push({ pathname: '/profile/trophies', params: { id } })}
+            >
+              <Text style={styles.trophyCaseBtnText}>View Trophy Case ({unlockedCount}) →</Text>
+            </TouchableOpacity>
 
             {posts.length > 0 && <Text style={styles.sectionLabel}>Shared Rounds</Text>}
           </View>
@@ -142,50 +176,77 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: colors.bg },
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 0 },
-  back: { color: GREEN, fontSize: 16, fontWeight: '500' },
+  back: { color: colors.gold, fontSize: 16, fontFamily: fonts.bodyMedium },
   list: { paddingHorizontal: 16, paddingBottom: 32 },
   profileSection: { alignItems: 'center', paddingVertical: 28 },
-  avatar: { fontSize: 60 },
-  username: { fontSize: 24, fontWeight: 'bold', color: '#222', marginTop: 10 },
-  roundCount: { fontSize: 14, color: '#888', marginTop: 4, marginBottom: 18 },
+  avatarRing: {
+    width: 88, height: 88, borderRadius: 44,
+    borderWidth: 2, borderColor: colors.gold,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.bgSecondary,
+  },
+  avatar: { fontSize: 44 },
+  username: { fontSize: 24, fontFamily: fonts.heading, color: colors.offWhite, marginTop: 14 },
+  roundCount: { fontSize: 14, color: colors.gray, marginTop: 4, marginBottom: 18 },
   followBtn: {
-    backgroundColor: GREEN,
-    borderRadius: 22,
+    backgroundColor: colors.emerald,
+    borderRadius: radius.pill,
     paddingHorizontal: 32,
     paddingVertical: 9,
     marginBottom: 28,
   },
-  followBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  followingBtn: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: GREEN },
-  followingBtnText: { color: GREEN },
+  followBtnText: { color: colors.offWhite, fontFamily: fonts.bodySemiBold, fontSize: 15 },
+  followingBtn: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.gold },
+  followingBtnText: { color: colors.gold },
   signOutBtn: {
     borderWidth: 1.5,
-    borderColor: '#d33',
-    borderRadius: 22,
+    borderColor: colors.danger,
+    borderRadius: radius.pill,
     paddingHorizontal: 32,
     paddingVertical: 9,
     marginBottom: 28,
   },
-  signOutText: { color: '#d33', fontWeight: '600', fontSize: 15 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#666', alignSelf: 'flex-start' },
+  signOutText: { color: colors.danger, fontFamily: fonts.bodySemiBold, fontSize: 15 },
+  sectionLabel: { ...typography.label, alignSelf: 'flex-start' },
+  honorsRow: {
+    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center',
+    gap: spacing.sm, marginBottom: 24,
+  },
+  honorBadge: {
+    width: 76, alignItems: 'center', borderRadius: radius.lg, borderWidth: 1.5,
+    paddingVertical: 12, paddingHorizontal: 4, backgroundColor: colors.bgSecondary,
+  },
+  honorBadgeUnlocked: { borderColor: colors.gold, ...shadow.goldGlow },
+  honorBadgeLocked: { borderColor: colors.hairline, opacity: 0.35 },
+  honorIcon: { fontSize: 28, marginBottom: 4 },
+  honorIconLocked: { opacity: 0.6 },
+  honorLabel: { fontSize: 10, fontFamily: fonts.bodyMedium, color: colors.offWhite, textAlign: 'center' },
+  noHonorsYet: { color: colors.gray, fontSize: 13, marginBottom: 16 },
+  trophyCaseBtn: {
+    borderWidth: 1.5, borderColor: colors.gold, borderRadius: radius.pill,
+    paddingHorizontal: 24, paddingVertical: 10, marginBottom: 24,
+  },
+  trophyCaseBtnText: { color: colors.gold, fontFamily: fonts.bodySemiBold, fontSize: 14 },
   postCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.bgSecondary,
+    borderRadius: radius.lg,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
     elevation: 2,
   },
-  postCourse: { fontSize: 17, fontWeight: 'bold', color: '#222', marginBottom: 6 },
+  postCourse: { fontSize: 17, fontFamily: fonts.heading, color: colors.offWhite, marginBottom: 6 },
   postStats: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 4 },
-  postScore: { fontSize: 24, fontWeight: 'bold', color: GREEN },
-  postPar: { fontSize: 16, color: '#555' },
-  postHoles: { fontSize: 13, color: '#999' },
-  postDate: { fontSize: 12, color: '#aaa' },
-  postNotes: { marginTop: 6, fontSize: 13, color: '#666', fontStyle: 'italic' },
-  noRounds: { textAlign: 'center', color: '#999', marginTop: 24, fontSize: 14 },
+  postScore: { fontSize: 24, fontFamily: fonts.bodySemiBold, color: colors.gold },
+  postPar: { fontSize: 16, color: colors.gray },
+  postHoles: { fontSize: 13, color: colors.gray },
+  postDate: { fontSize: 12, color: colors.gray },
+  postNotes: { marginTop: 6, fontSize: 13, color: colors.gray, fontStyle: 'italic' },
+  noRounds: { textAlign: 'center', color: colors.gray, marginTop: 24, fontSize: 14 },
 });

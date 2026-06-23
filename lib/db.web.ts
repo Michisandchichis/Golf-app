@@ -174,6 +174,10 @@ export function getHoles(roundId: number): Hole[] {
     .sort((a, b) => a.holeNumber - b.holeNumber);
 }
 
+export function getAllHoles(): Hole[] {
+  return [...holes];
+}
+
 export function deleteRound(roundId: number) {
   rounds = rounds.filter(r => r.id !== roundId);
   holes = holes.filter(h => h.roundId !== roundId);

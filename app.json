@@ -26,7 +26,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-updates"
+      "expo-updates",
+      "expo-font"
     ],
     "updates": {
       "url": "https://u.expo.dev/golf-app"

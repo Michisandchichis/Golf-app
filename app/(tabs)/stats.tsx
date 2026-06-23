@@ -4,9 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRounds, getHoles, deleteRound, Round, Hole, getCloudReady } from '../../lib/db';
-
-const GREEN = '#2d6a2d';
-const RED = '#c62828';
+import { colors, fonts, spacing, radius, typography } from '../../lib/theme';
 
 type Goals = { fairways: number; gir: number; scrambling: number; threePutt: number; penalties: number };
 const GOALS_KEY = '@golf_goals';
@@ -82,11 +80,11 @@ function calcHandicapHistory(rounds: Round[]): { date: string; value: number }[]
 }
 
 function trend(recent: number | null, overall: number | null, higherBetter: boolean) {
-  if (recent === null || overall === null) return { arrow: '', color: '#888' };
+  if (recent === null || overall === null) return { arrow: '', color: colors.gray };
   const diff = recent - overall;
-  if (Math.abs(diff) < 1) return { arrow: '', color: '#888' };
+  if (Math.abs(diff) < 1) return { arrow: '', color: colors.gray };
   const improving = higherBetter ? diff > 0 : diff < 0;
-  return { arrow: improving ? ' ↑' : ' ↓', color: improving ? GREEN : RED };
+  return { arrow: improving ? ' ↑' : ' ↓', color: improving ? colors.emeraldLight : colors.danger };
 }
 
 export default function StatsScreen() {
@@ -377,7 +375,7 @@ export default function StatsScreen() {
               <Text style={styles.sectionTitle}>Scoring by Par</Text>
               <View style={styles.parRow}>
                 {parGroups.map(({ par, avg, count }) => {
-                  const color = avg === null ? '#bbb' : avg <= 0 ? GREEN : avg <= 0.5 ? '#888' : RED;
+                  const color = avg === null ? colors.gray : avg <= 0 ? colors.emeraldLight : avg <= 0.5 ? colors.gray : colors.danger;
                   const label = avg === null ? '—' : avg === 0 ? 'E' : avg > 0 ? `+${avg.toFixed(2)}` : avg.toFixed(2);
                   return (
                     <View key={par} style={styles.parCard}>
@@ -396,20 +394,20 @@ export default function StatsScreen() {
                 <Text style={styles.sectionTitle}>Hole Breakdown</Text>
                 <View style={styles.bestWorstRow}>
                   {bestHole && (
-                    <View style={[styles.bestWorstCard, { borderColor: GREEN }]}>
+                    <View style={[styles.bestWorstCard, { borderColor: colors.gold }]}>
                       <Text style={styles.bestWorstEmoji}>🏆</Text>
                       <Text style={styles.bestWorstLabel}>Best Hole</Text>
                       <Text style={styles.bestWorstHole}>#{bestHole.num}</Text>
-                      <Text style={[styles.bestWorstAvg, { color: GREEN }]}>{fmtDiff(bestHole.avg)}</Text>
+                      <Text style={[styles.bestWorstAvg, { color: colors.gold }]}>{fmtDiff(bestHole.avg)}</Text>
                       <Text style={styles.bestWorstCount}>{bestHole.count} rounds</Text>
                     </View>
                   )}
                   {worstHole && worstHole.num !== bestHole?.num && (
-                    <View style={[styles.bestWorstCard, { borderColor: '#eee' }]}>
+                    <View style={[styles.bestWorstCard, { borderColor: colors.hairline }]}>
                       <Text style={styles.bestWorstEmoji}>⚠️</Text>
                       <Text style={styles.bestWorstLabel}>Hardest Hole</Text>
                       <Text style={styles.bestWorstHole}>#{worstHole.num}</Text>
-                      <Text style={[styles.bestWorstAvg, { color: RED }]}>{fmtDiff(worstHole.avg)}</Text>
+                      <Text style={[styles.bestWorstAvg, { color: colors.danger }]}>{fmtDiff(worstHole.avg)}</Text>
                       <Text style={styles.bestWorstCount}>{worstHole.count} rounds</Text>
                     </View>
                   )}
@@ -529,7 +527,7 @@ function MiniLineGraph({ data, lowerBetter = false }: {
   const latest = values[values.length - 1];
   const diff = latest - first;
   const improving = lowerBetter ? diff <= 0 : diff >= 0;
-  const lineColor = Math.abs(diff) > 0.01 ? (improving ? GREEN : RED) : '#aaa';
+  const lineColor = Math.abs(diff) > 0.01 ? (improving ? colors.emeraldLight : colors.danger) : colors.gray;
 
   const pad = { t: 6, b: 14, l: 4, r: 4 };
   const cw = w - pad.l - pad.r;
@@ -549,16 +547,16 @@ function MiniLineGraph({ data, lowerBetter = false }: {
   return (
     <View onLayout={(e: any) => setW(e.nativeEvent.layout.width)}>
       <Svg width={w} height={height}>
-        <Line x1={pad.l} y1={pad.t+ch} x2={pad.l+cw} y2={pad.t+ch} stroke="#f0f0f0" strokeWidth={1} />
-        <Path d={fp} fill={lineColor} fillOpacity={0.08} />
+        <Line x1={pad.l} y1={pad.t+ch} x2={pad.l+cw} y2={pad.t+ch} stroke={colors.hairline} strokeWidth={1} />
+        <Path d={fp} fill={lineColor} fillOpacity={0.12} />
         <Path d={lp} stroke={lineColor} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         {pts.map((p, i) => (
           <Circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 2.5}
-            fill={i === pts.length - 1 ? lineColor : '#fff'} stroke={lineColor} strokeWidth={1.5} />
+            fill={i === pts.length - 1 ? lineColor : colors.bg} stroke={lineColor} strokeWidth={1.5} />
         ))}
-        <SvgText x={pts[0].x} y={height-2} textAnchor="start" fontSize={8} fill="#ccc">{fmtDate(data[0].date)}</SvgText>
+        <SvgText x={pts[0].x} y={height-2} textAnchor="start" fontSize={8} fill={colors.gray}>{fmtDate(data[0].date)}</SvgText>
         {data[0].date !== data[data.length-1].date && (
-          <SvgText x={pts[pts.length-1].x} y={height-2} textAnchor="end" fontSize={8} fill="#ccc">
+          <SvgText x={pts[pts.length-1].x} y={height-2} textAnchor="end" fontSize={8} fill={colors.gray}>
             {fmtDate(data[data.length-1].date)}
           </SvgText>
         )}
@@ -600,15 +598,15 @@ function HandicapLineGraph({ data }: { data: { date: string; value: number }[] }
   const firstPt = pts[0];
   const improving = latest < first;
 
-  const lineColor = improving ? GREEN : '#c62828';
+  const lineColor = improving ? colors.gold : colors.danger;
 
   return (
     <View onLayout={(e: any) => setWidth(e.nativeEvent.layout.width)}>
       <Svg width={width} height={height}>
         {/* Baseline */}
-        <Line x1={pad.l} y1={pad.t + ch} x2={pad.l + cw} y2={pad.t + ch} stroke="#eee" strokeWidth={1} />
+        <Line x1={pad.l} y1={pad.t + ch} x2={pad.l + cw} y2={pad.t + ch} stroke={colors.hairline} strokeWidth={1} />
         {/* Fill under line */}
-        <Path d={fillPath} fill={lineColor} fillOpacity={0.08} />
+        <Path d={fillPath} fill={lineColor} fillOpacity={0.12} />
         {/* Line */}
         <Path d={linePath} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         {/* Dots */}
@@ -620,7 +618,7 @@ function HandicapLineGraph({ data }: { data: { date: string; value: number }[] }
               cx={p.x}
               cy={p.y}
               r={isLast ? 5 : 3}
-              fill={isLast ? lineColor : '#fff'}
+              fill={isLast ? lineColor : colors.bg}
               stroke={lineColor}
               strokeWidth={1.5}
             />
@@ -632,16 +630,16 @@ function HandicapLineGraph({ data }: { data: { date: string; value: number }[] }
         </SvgText>
         {/* First label — only if far enough away to not overlap */}
         {Math.abs(first - latest) > 0.4 && (
-          <SvgText x={pad.l - 4} y={firstPt.y + 4} textAnchor="end" fontSize={10} fill="#bbb">
+          <SvgText x={pad.l - 4} y={firstPt.y + 4} textAnchor="end" fontSize={10} fill={colors.gray}>
             {first.toFixed(1)}
           </SvgText>
         )}
         {/* Date labels: first and last */}
-        <SvgText x={pts[0].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
+        <SvgText x={pts[0].x} y={height - 2} textAnchor="middle" fontSize={9} fill={colors.gray}>
           {fmtDate(data[0].date)}
         </SvgText>
         {data.length > 2 && (
-          <SvgText x={pts[pts.length - 1].x} y={height - 2} textAnchor="middle" fontSize={9} fill="#bbb">
+          <SvgText x={pts[pts.length - 1].x} y={height - 2} textAnchor="middle" fontSize={9} fill={colors.gray}>
             {fmtDate(data[data.length - 1].date)}
           </SvgText>
         )}
@@ -686,9 +684,9 @@ function GoalRow({ label, current, goal, unit, lowerBetter = false, onSetGoal }:
     <View style={styles.goalRow}>
       <Text style={styles.goalLabel}>{label}</Text>
       <View style={styles.goalBarBg}>
-        <View style={[styles.goalBarFill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: met ? GREEN : '#6ab26a' }]} />
+        <View style={[styles.goalBarFill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: met ? colors.gold : colors.emeraldLight }]} />
       </View>
-      <Text style={[styles.goalCurrent, met ? { color: GREEN, fontWeight: '700' } : {}]}>{display}</Text>
+      <Text style={[styles.goalCurrent, met ? { color: colors.gold, fontWeight: '700' } : {}]}>{display}</Text>
       <Text style={styles.goalSep}>/</Text>
       {editing ? (
         <TextInput style={styles.goalInput} value={draft} onChangeText={setDraft}
@@ -705,106 +703,109 @@ function GoalRow({ label, current, goal, unit, lowerBetter = false, onSetGoal }:
 function StatPill({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <View style={styles.pill}>
-      <Text style={[styles.pillValue, highlight && { color: '#c62828' }]}>{value}</Text>
+      <Text style={[styles.pillValue, highlight && { color: colors.danger }]}>{value}</Text>
       <Text style={styles.pillLabel}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  scroll: { padding: 16, gap: 12 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  scroll: { padding: spacing.md, gap: spacing.sm },
   empty: { alignItems: 'center', paddingTop: 80 },
   emptyEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginTop: 12 },
-  emptySub: { fontSize: 14, color: '#888', marginTop: 6 },
+  emptyTitle: { fontSize: 18, fontFamily: fonts.heading, color: colors.offWhite, marginTop: 12 },
+  emptySub: { fontSize: 14, color: colors.gray, marginTop: 6 },
   handicapCard: {
-    backgroundColor: GREEN, borderRadius: 12, padding: 18,
+    backgroundColor: colors.bgSecondary, borderRadius: radius.lg, padding: 18,
+    borderWidth: 1, borderColor: colors.hairline,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  handicapLabel: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  handicapSub: { fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 3, maxWidth: 200 },
-  handicapValue: { fontSize: 40, fontWeight: 'bold', color: '#fff' },
+  handicapLabel: { fontSize: 16, fontFamily: fonts.bodySemiBold, color: colors.offWhite },
+  handicapSub: { fontSize: 11, color: colors.gray, marginTop: 3, maxWidth: 200 },
+  handicapValue: { fontSize: 40, fontFamily: fonts.bodySemiBold, color: colors.gold },
   summaryRow: { flexDirection: 'row', gap: 10 },
   summaryCard: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 14,
-    alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    flex: 1, backgroundColor: colors.bgSecondary, borderRadius: radius.md, padding: 14,
+    borderWidth: 1, borderColor: colors.hairline,
+    alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, elevation: 2,
   },
-  summaryValue: { fontSize: 22, fontWeight: 'bold', color: GREEN },
-  summaryLabel: { fontSize: 11, color: '#888', marginTop: 2 },
+  summaryValue: { fontSize: 22, fontFamily: fonts.bodySemiBold, color: colors.gold },
+  summaryLabel: { fontSize: 11, color: colors.gray, marginTop: 2 },
   card: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 16,
-    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    backgroundColor: colors.bgSecondary, borderRadius: radius.lg, padding: spacing.md,
+    borderWidth: 1, borderColor: colors.hairline,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 6, elevation: 2,
   },
-  sectionTitle: { fontSize: 11, fontWeight: '700', color: '#999', marginBottom: 14, textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionTitleStandalone: { fontSize: 11, fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionTitle: { ...typography.label, marginBottom: 14 },
+  sectionTitleStandalone: { ...typography.label },
   bigStatRow: { flexDirection: 'row', alignItems: 'center' },
   bigStatItem: { flex: 1, alignItems: 'center' },
-  bigStatValue: { fontSize: 26, fontWeight: 'bold', color: GREEN },
+  bigStatValue: { fontSize: 26, fontFamily: fonts.bodySemiBold, color: colors.gold },
   trendArrow: { fontSize: 20, fontWeight: 'bold' },
-  bigStatLabel: { fontSize: 12, color: '#888', marginTop: 4 },
-  bigStatDivider: { width: 1, height: 44, backgroundColor: '#eee' },
-  bigStatDividerH: { height: 1, backgroundColor: '#eee', marginVertical: 14 },
-  trendNote: { fontSize: 11, color: '#bbb', marginTop: 8 },
+  bigStatLabel: { fontSize: 12, color: colors.gray, marginTop: 4 },
+  bigStatDivider: { width: 1, height: 44, backgroundColor: colors.hairline },
+  bigStatDividerH: { height: 1, backgroundColor: colors.hairline, marginVertical: 14 },
+  trendNote: { fontSize: 11, color: colors.gray, marginTop: 8 },
   trendFooterRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 4 },
   parRow: { flexDirection: 'row', gap: 8 },
   parCard: {
-    flex: 1, backgroundColor: '#f8f8f8', borderRadius: 10, padding: 12, alignItems: 'center',
+    flex: 1, backgroundColor: colors.inputBg, borderRadius: radius.md, padding: 12, alignItems: 'center',
   },
-  parType: { fontSize: 12, color: '#888', fontWeight: '600' },
-  parAvg: { fontSize: 22, fontWeight: 'bold', marginTop: 4 },
-  parCount: { fontSize: 11, color: '#bbb', marginTop: 3 },
+  parType: { fontSize: 12, color: colors.gray, fontFamily: fonts.bodySemiBold },
+  parAvg: { fontSize: 22, fontFamily: fonts.bodySemiBold, marginTop: 4 },
+  parCount: { fontSize: 11, color: colors.gray, marginTop: 3 },
   missSection: { flexDirection: 'row', alignItems: 'flex-start' },
   missHalf: { flex: 1, alignItems: 'center' },
-  missDivider: { width: 1, backgroundColor: '#eee', alignSelf: 'stretch', marginHorizontal: 8 },
-  missSubTitle: { fontSize: 12, fontWeight: '700', color: '#555', marginBottom: 12 },
-  noDataText: { fontSize: 11, color: '#bbb', fontStyle: 'italic', textAlign: 'center', lineHeight: 17 },
+  missDivider: { width: 1, backgroundColor: colors.hairline, alignSelf: 'stretch', marginHorizontal: 8 },
+  missSubTitle: { fontSize: 12, fontFamily: fonts.bodySemiBold, color: colors.offWhite, marginBottom: 12 },
+  noDataText: { fontSize: 11, color: colors.gray, fontStyle: 'italic', textAlign: 'center', lineHeight: 17 },
   compass: { alignItems: 'center', gap: 6 },
   compassMid: { flexDirection: 'row', gap: 16 },
   compassDirBox: { alignItems: 'center', minWidth: 44 },
-  compassArrow: { fontSize: 16, color: '#555' },
-  compassPct: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-  compassName: { fontSize: 10, color: '#aaa' },
+  compassArrow: { fontSize: 16, color: colors.gray },
+  compassPct: { fontSize: 14, fontFamily: fonts.bodySemiBold, color: colors.offWhite },
+  compassName: { fontSize: 10, color: colors.gray },
   fwWrap: { width: '100%' },
   fwBarsRow: { flexDirection: 'row', height: 28, borderRadius: 6, overflow: 'hidden' },
-  fwBarLeft: { backgroundColor: '#dceeff' },
-  fwBarRight: { backgroundColor: '#fdecea' },
+  fwBarLeft: { backgroundColor: 'rgba(29,83,69,0.6)' },
+  fwBarRight: { backgroundColor: 'rgba(198,40,40,0.4)' },
   fwLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  fwLabel: { fontSize: 12, fontWeight: '600', color: '#555', lineHeight: 17 },
+  fwLabel: { fontSize: 12, fontFamily: fonts.bodySemiBold, color: colors.offWhite, lineHeight: 17 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  cardCourse: { fontSize: 15, fontWeight: '600', color: '#222' },
-  cardDate: { fontSize: 12, color: '#888', marginTop: 2 },
-  cardRating: { fontSize: 11, color: '#aaa', marginTop: 2 },
+  cardCourse: { fontSize: 15, fontFamily: fonts.bodySemiBold, color: colors.offWhite },
+  cardDate: { fontSize: 12, color: colors.gray, marginTop: 2 },
+  cardRating: { fontSize: 11, color: colors.gray, marginTop: 2 },
   scoreBlock: { alignItems: 'center', marginRight: 8 },
-  scoreNum: { fontSize: 22, fontWeight: 'bold', color: GREEN },
-  scorePar: { fontSize: 11, color: '#666' },
+  scoreNum: { fontSize: 22, fontFamily: fonts.bodySemiBold, color: colors.gold },
+  scorePar: { fontSize: 11, color: colors.gray },
   deleteBtn: { padding: 6 },
   deleteBtnText: { fontSize: 16 },
   statRow: { flexDirection: 'row', gap: 8 },
-  pill: { flex: 1, backgroundColor: '#f0f6f0', borderRadius: 8, padding: 8, alignItems: 'center' },
-  pillValue: { fontSize: 15, fontWeight: 'bold', color: GREEN },
-  pillLabel: { fontSize: 10, color: '#666', marginTop: 2 },
+  pill: { flex: 1, backgroundColor: colors.inputBg, borderRadius: radius.sm, padding: 8, alignItems: 'center' },
+  pillValue: { fontSize: 15, fontFamily: fonts.bodySemiBold, color: colors.gold },
+  pillLabel: { fontSize: 10, color: colors.gray, marginTop: 2 },
   // Performance trends grid
   miniChartGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   miniChartCell: { width: '47%' as any },
-  miniChartTitle: { fontSize: 11, fontWeight: '600', color: '#777', marginBottom: 2 },
-  miniChartLatest: { fontSize: 18, fontWeight: 'bold', color: GREEN, marginBottom: 2 },
+  miniChartTitle: { fontSize: 11, fontFamily: fonts.bodySemiBold, color: colors.gray, marginBottom: 2 },
+  miniChartLatest: { fontSize: 18, fontFamily: fonts.bodySemiBold, color: colors.gold, marginBottom: 2 },
   // Goals
-  goalHint: { fontSize: 11, color: '#bbb', marginBottom: 12 },
+  goalHint: { fontSize: 11, color: colors.gray, marginBottom: 12 },
   goalRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-  goalLabel: { width: 78, fontSize: 13, color: '#444', fontWeight: '500' },
-  goalBarBg: { flex: 1, height: 8, backgroundColor: '#f0f0f0', borderRadius: 4, overflow: 'hidden' },
+  goalLabel: { width: 78, fontSize: 13, color: colors.offWhite, fontFamily: fonts.bodyMedium },
+  goalBarBg: { flex: 1, height: 8, backgroundColor: colors.inputBg, borderRadius: 4, overflow: 'hidden' },
   goalBarFill: { height: 8, borderRadius: 4 },
-  goalCurrent: { fontSize: 12, color: '#666', width: 36, textAlign: 'right' as const },
-  goalSep: { fontSize: 12, color: '#ddd' },
-  goalTarget: { fontSize: 12, color: '#888', width: 50 },
-  goalInput: { fontSize: 12, color: '#333', width: 50, borderBottomWidth: 1, borderBottomColor: '#aaa', padding: 0 },
+  goalCurrent: { fontSize: 12, color: colors.gray, width: 36, textAlign: 'right' as const },
+  goalSep: { fontSize: 12, color: colors.gray },
+  goalTarget: { fontSize: 12, color: colors.gray, width: 50 },
+  goalInput: { fontSize: 12, color: colors.offWhite, width: 50, borderBottomWidth: 1, borderBottomColor: colors.inputBorder, padding: 0 },
   // Best/worst hole
   bestWorstRow: { flexDirection: 'row', gap: 12 },
-  bestWorstCard: { flex: 1, borderWidth: 1.5, borderRadius: 10, padding: 14, alignItems: 'center' as const },
+  bestWorstCard: { flex: 1, borderWidth: 1.5, borderRadius: radius.md, padding: 14, alignItems: 'center' as const },
   bestWorstEmoji: { fontSize: 20, marginBottom: 4 },
-  bestWorstLabel: { fontSize: 11, color: '#888', fontWeight: '600' as const },
-  bestWorstHole: { fontSize: 28, fontWeight: 'bold' as const, color: '#333', marginTop: 2 },
-  bestWorstAvg: { fontSize: 20, fontWeight: 'bold' as const, marginTop: 2 },
-  bestWorstCount: { fontSize: 11, color: '#bbb', marginTop: 4 },
+  bestWorstLabel: { fontSize: 11, color: colors.gray, fontWeight: '600' as const },
+  bestWorstHole: { fontSize: 28, fontFamily: fonts.bodySemiBold, color: colors.offWhite, marginTop: 2 },
+  bestWorstAvg: { fontSize: 20, fontFamily: fonts.bodySemiBold, marginTop: 2 },
+  bestWorstCount: { fontSize: 11, color: colors.gray, marginTop: 4 },
 });

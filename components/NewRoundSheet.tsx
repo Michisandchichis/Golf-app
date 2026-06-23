@@ -3,13 +3,21 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-nativ
 import { useRouter } from 'expo-router';
 import { createRound } from '../lib/db';
 import { searchCourses, PresetCourse, Tee } from '../lib/courses';
-
-const GREEN = '#2d6a2d';
+import { colors, fonts, spacing, radius, typography } from '../lib/theme';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
 };
+
+function combinedCourseName(front: PresetCourse, back: PresetCourse) {
+  const sharedPrefixMatch = front.name.match(/^(.*? - )/);
+  if (sharedPrefixMatch && back.name.startsWith(sharedPrefixMatch[1])) {
+    const prefix = sharedPrefixMatch[1];
+    return `${prefix}${front.name.slice(prefix.length)} + ${back.name.slice(prefix.length)}`;
+  }
+  return `${front.name} + ${back.name}`;
+}
 
 export default function NewRoundSheet({ visible, onClose }: Props) {
   const router = useRouter();
@@ -20,12 +28,17 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
   const [suggestions, setSuggestions] = useState<PresetCourse[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<PresetCourse | null>(null);
   const [selectedTee, setSelectedTee] = useState<Tee | null>(null);
+  const [backNineQuery, setBackNineQuery] = useState('');
+  const [backNineSuggestions, setBackNineSuggestions] = useState<PresetCourse[]>([]);
+  const [selectedBackNine, setSelectedBackNine] = useState<PresetCourse | null>(null);
 
   if (!visible) return null;
 
   function reset() {
     setCourseName(''); setCourseRating(''); setSlopeRating('');
     setSuggestions([]); setSelectedCourse(null); setSelectedTee(null);
+    setHoles('18');
+    setBackNineQuery(''); setBackNineSuggestions([]); setSelectedBackNine(null);
   }
 
   function handleCourseNameChange(name: string) {
@@ -33,6 +46,7 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
     setSelectedCourse(null); setSelectedTee(null);
     setCourseRating(''); setSlopeRating('');
     setSuggestions(searchCourses(name));
+    setSelectedBackNine(null); setBackNineQuery(''); setBackNineSuggestions([]);
   }
 
   function selectPresetCourse(course: PresetCourse) {
@@ -44,6 +58,7 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
     setSelectedTee(firstTee);
     setCourseRating(String(firstTee.rating));
     setSlopeRating(String(firstTee.slope));
+    setSelectedBackNine(null); setBackNineQuery(''); setBackNineSuggestions([]);
   }
 
   function selectTee(tee: Tee) {
@@ -52,19 +67,46 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
     setSlopeRating(String(tee.slope));
   }
 
+  function handleBackNineQueryChange(name: string) {
+    setBackNineQuery(name);
+    setSelectedBackNine(null);
+    setBackNineSuggestions(searchCourses(name));
+  }
+
+  function selectBackNine(course: PresetCourse) {
+    setSelectedBackNine(course);
+    setBackNineQuery(course.name);
+    setBackNineSuggestions([]);
+  }
+
   function startRound() {
     if (!courseName.trim()) return;
-    const rating = parseFloat(courseRating) || 0;
-    const slope = parseInt(slopeRating) || 113;
-    const pars = selectedCourse?.pars ?? [];
-    const yards = selectedTee?.yards ?? [];
-    const handicaps = selectedCourse?.handicaps ?? [];
-    const roundId = createRound(courseName.trim(), parseInt(holes), rating, slope);
+    const needsBackNine = selectedCourse?.holes === 9 && holes === '18';
+    if (needsBackNine && !selectedBackNine) return;
+
+    let finalCourseName = courseName.trim();
+    let rating = parseFloat(courseRating) || 0;
+    let slope = parseInt(slopeRating) || 113;
+    let pars = selectedCourse?.pars ?? [];
+    let yards = selectedTee?.yards ?? [];
+    let handicaps = selectedCourse?.handicaps ?? [];
+
+    if (needsBackNine && selectedCourse && selectedBackNine) {
+      const backTee = selectedBackNine.tees.find((t) => t.name === selectedTee?.name) ?? selectedBackNine.tees[0];
+      finalCourseName = combinedCourseName(selectedCourse, selectedBackNine);
+      rating = (parseFloat(courseRating) || 0) + backTee.rating;
+      slope = Math.round(((parseInt(slopeRating) || 113) + backTee.slope) / 2);
+      pars = [...(selectedCourse.pars ?? []), ...selectedBackNine.pars];
+      yards = [...(selectedTee?.yards ?? []), ...backTee.yards];
+      handicaps = [...(selectedCourse.handicaps ?? []), ...selectedBackNine.handicaps];
+    }
+
+    const roundId = createRound(finalCourseName, parseInt(holes), rating, slope);
     reset();
     onClose();
     router.replace({
       pathname: '/(tabs)/scorecard',
-      params: { roundId, totalHoles: holes, courseName: courseName.trim(), pars: pars.join(','), yards: yards.join(','), handicaps: handicaps.join(',') },
+      params: { roundId, totalHoles: holes, courseName: finalCourseName, pars: pars.join(','), yards: yards.join(','), handicaps: handicaps.join(',') },
     });
   }
 
@@ -78,6 +120,7 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
         <TextInput
           style={styles.input}
           placeholder="e.g. Valley Oaks"
+          placeholderTextColor={colors.gray}
           value={courseName}
           onChangeText={handleCourseNameChange}
           autoFocus
@@ -126,6 +169,7 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
               <TextInput
                 style={[styles.input, { flex: 1 }]}
                 placeholder="Rating e.g. 72.4"
+                placeholderTextColor={colors.gray}
                 value={courseRating}
                 onChangeText={setCourseRating}
                 keyboardType="decimal-pad"
@@ -133,32 +177,60 @@ export default function NewRoundSheet({ visible, onClose }: Props) {
               <TextInput
                 style={[styles.input, { flex: 1 }]}
                 placeholder="Slope e.g. 113"
+                placeholderTextColor={colors.gray}
                 value={slopeRating}
                 onChangeText={setSlopeRating}
                 keyboardType="number-pad"
               />
             </View>
-            <Text style={styles.label}>Number of holes</Text>
-            <View style={styles.holeToggle}>
-              {(['9', '18'] as const).map((n) => (
-                <TouchableOpacity
-                  key={n}
-                  style={[styles.holeBtn, holes === n && styles.holeBtnActive]}
-                  onPress={() => setHoles(n)}
-                >
-                  <Text style={[styles.holeBtnText, holes === n && styles.holeBtnTextActive]}>
-                    {n} holes
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+          </>
+        )}
+
+        <Text style={styles.label}>Number of holes</Text>
+        <View style={styles.holeToggle}>
+          {(['9', '18'] as const).map((n) => (
+            <TouchableOpacity
+              key={n}
+              style={[styles.holeBtn, holes === n && styles.holeBtnActive]}
+              onPress={() => setHoles(n)}
+            >
+              <Text style={[styles.holeBtnText, holes === n && styles.holeBtnTextActive]}>
+                {n} holes
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {selectedCourse?.holes === 9 && holes === '18' && (
+          <>
+            <Text style={styles.label}>Back 9 course</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Search for a course to play as the back 9"
+              placeholderTextColor={colors.gray}
+              value={backNineQuery}
+              onChangeText={handleBackNineQueryChange}
+            />
+            {backNineSuggestions.length > 0 && (
+              <View style={styles.suggestions}>
+                {backNineSuggestions.map((c) => (
+                  <TouchableOpacity key={c.name} style={styles.suggestion} onPress={() => selectBackNine(c)}>
+                    <Text style={styles.suggestionText}>{c.name}</Text>
+                    <Text style={styles.suggestionSub}>{c.holes} holes</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            {selectedBackNine && (
+              <Text style={styles.labelHint}>Back 9: {selectedBackNine.name}</Text>
+            )}
           </>
         )}
 
         <TouchableOpacity
-          style={[styles.confirmBtn, !courseName.trim() && { opacity: 0.4 }]}
+          style={[styles.confirmBtn, (!courseName.trim() || (selectedCourse?.holes === 9 && holes === '18' && !selectedBackNine)) && { opacity: 0.4 }]}
           onPress={startRound}
-          disabled={!courseName.trim()}
+          disabled={!courseName.trim() || (selectedCourse?.holes === 9 && holes === '18' && !selectedBackNine)}
         >
           <Text style={styles.confirmBtnText}>Tee Off →</Text>
         </TouchableOpacity>
@@ -178,36 +250,59 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
-    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24,
+    backgroundColor: colors.bgSecondary,
+    borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    borderTopWidth: 1, borderColor: colors.hairline,
+    padding: spacing.xl,
   },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#222', marginBottom: 16 },
-  label: { fontSize: 13, color: '#555', marginBottom: 6, marginTop: 12 },
-  labelHint: { fontSize: 11, color: '#aaa' },
+  title: { ...typography.h1, fontSize: 22, marginBottom: spacing.md },
+  label: { ...typography.label, marginBottom: spacing.xs, marginTop: spacing.md },
+  labelHint: { fontSize: 11, color: colors.gray, textTransform: 'none' },
   ratingRow: { flexDirection: 'row', gap: 10 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
-  suggestions: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginTop: 4, overflow: 'hidden' },
+  input: {
+    backgroundColor: colors.inputBg,
+    borderWidth: 1, borderColor: colors.inputBorder,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    fontSize: 16, fontFamily: fonts.body, color: colors.offWhite,
+  },
+  suggestions: {
+    backgroundColor: colors.inputBg,
+    borderWidth: 1, borderColor: colors.inputBorder,
+    borderRadius: radius.md, marginTop: 4, overflow: 'hidden',
+  },
   suggestion: {
-    paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
+    paddingHorizontal: spacing.md, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: colors.hairline,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  suggestionText: { fontSize: 14, color: '#222', fontWeight: '500' },
-  suggestionSub: { fontSize: 12, color: '#aaa' },
+  suggestionText: { fontSize: 14, color: colors.offWhite, fontFamily: fonts.bodyMedium },
+  suggestionSub: { fontSize: 12, color: colors.gray },
   teeRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  teeBtn: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  teeBtnActive: { backgroundColor: GREEN, borderColor: GREEN },
-  teeBtnText: { fontSize: 14, fontWeight: '600', color: '#444' },
-  teeBtnSub: { fontSize: 11, color: '#888', marginTop: 2 },
-  teeBtnTextActive: { color: '#fff' },
+  teeBtn: {
+    flex: 1, borderWidth: 1, borderColor: colors.inputBorder,
+    borderRadius: radius.md, paddingVertical: 10, alignItems: 'center',
+  },
+  teeBtnActive: { backgroundColor: colors.emerald, borderColor: colors.emerald },
+  teeBtnText: { fontSize: 14, fontFamily: fonts.bodySemiBold, color: colors.offWhite },
+  teeBtnSub: { fontSize: 11, color: colors.gray, marginTop: 2 },
+  teeBtnTextActive: { color: colors.offWhite },
   holeToggle: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  holeBtn: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
-  holeBtnActive: { backgroundColor: GREEN, borderColor: GREEN },
-  holeBtnText: { fontSize: 15, color: '#444' },
-  holeBtnTextActive: { color: '#fff', fontWeight: '600' },
-  confirmBtn: { backgroundColor: GREEN, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
-  confirmBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  cancelBtn: { alignItems: 'center', paddingVertical: 12 },
-  cancelBtnText: { color: '#888', fontSize: 14 },
+  holeBtn: {
+    flex: 1, borderWidth: 1, borderColor: colors.inputBorder,
+    borderRadius: radius.md, paddingVertical: 10, alignItems: 'center',
+  },
+  holeBtnActive: { backgroundColor: colors.emerald, borderColor: colors.emerald },
+  holeBtnText: { fontSize: 15, color: colors.offWhite, fontFamily: fonts.body },
+  holeBtnTextActive: { fontFamily: fonts.bodySemiBold },
+  confirmBtn: {
+    backgroundColor: colors.emerald, borderRadius: radius.md,
+    paddingVertical: 16, alignItems: 'center', marginTop: spacing.lg,
+  },
+  confirmBtnText: { color: colors.offWhite, fontSize: 16, fontFamily: fonts.bodySemiBold },
+  cancelBtn: { alignItems: 'center', paddingVertical: spacing.sm },
+  cancelBtnText: { color: colors.gray, fontSize: 14, fontFamily: fonts.body },
 });

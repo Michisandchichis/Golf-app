@@ -49,3 +49,84 @@ export type Like = {
   post_id: string;
   created_at: string;
 };
+
+export type Achievement = {
+  id: string;
+  user_id: string;
+  milestone_key: string;
+  achieved_at: string;
+  round_score: number;
+  local_round_id?: number | null;
+  shared: boolean;
+  shared_post_id?: string | null;
+  created_at: string;
+};
+
+export type Clubhouse = {
+  id: string;
+  name: string;
+  description: string | null;
+  creator_id: string;
+  is_public: boolean;
+  settings: { can_members_invite: boolean; can_members_create_events: boolean };
+  created_at: string;
+};
+
+export type ClubhouseMember = {
+  id: string;
+  clubhouse_id: string;
+  user_id: string;
+  role: 'admin' | 'member';
+  status: 'invited' | 'active' | 'pending';
+  invited_by: string | null;
+  created_at: string;
+  profiles?: Profile;
+  clubhouses?: Clubhouse;
+};
+
+export type Availability = {
+  id: string;
+  user_id: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  status: 'available' | 'maybe';
+  notes: string | null;
+  created_at: string;
+  profiles?: Profile;
+};
+
+export type GolfEvent = {
+  id: string;
+  clubhouse_id: string | null;
+  creator_id: string;
+  title: string;
+  course_name: string | null;
+  event_date: string;
+  tee_time: string | null;
+  format: 'stroke' | 'skins' | 'scramble' | 'match' | 'casual';
+  max_players: number | null;
+  is_public: boolean;
+  notes: string | null;
+  status: 'upcoming' | 'completed' | 'cancelled';
+  created_at: string;
+  clubhouses?: Clubhouse;
+};
+
+export type EventRsvp = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: 'invited' | 'going' | 'maybe' | 'declined';
+  created_at: string;
+  profiles?: Profile;
+};
+
+export type EventMessage = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  message: string;
+  created_at: string;
+  profiles?: Profile;
+};

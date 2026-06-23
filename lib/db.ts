@@ -148,6 +148,10 @@ export function getHoles(roundId: number): Hole[] {
   );
 }
 
+export function getAllHoles(): Hole[] {
+  return db.getAllSync<Hole>('SELECT * FROM holes');
+}
+
 export function deleteRound(roundId: number) {
   db.runSync('DELETE FROM holes WHERE roundId = ?', [roundId]);
   db.runSync('DELETE FROM rounds WHERE id = ?', [roundId]);
